@@ -1,30 +1,55 @@
-name: Check Bonefield Forge
+name: Build and deploy Bonefield Forge
 
-# GitHub Pages serves this repo straight from the main branch, so the built
-# web/index.html must be committed. This check fails if it is out of date
-# with web/src/, and builds every model once as a smoke test.
+# Builds web/index.html from web/src/ (gen.js + page.html), smoke-tests every
+# model, and publishes the page to GitHub Pages.
+# Requires Settings -> Pages -> Source: "GitHub Actions".
 
 on:
   push:
     branches: [main]
-    paths: ['web/**', '.github/workflows/pages.yml']
   pull_request:
-    paths: ['web/**']
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: index.html is up to date with src/
-        run: |
-          python3 web/build.py
-          git diff --exit-code -- web/index.html || { echo "::error::web/index.html is stale. Run 'python3 web/build.py' and commit it."; exit 1; }
+      - name: Build index.html from src/
+        run: python3 web/build.py
 
       - name: Smoke test the generator
         run: node web/test/check.js 7 0.5
+
+      - name: Collect site
+        run: |
+          mkdir -p _site
+          cp web/index.html _site/index.html
+          touch _site/.nojekyll
+
+      - name: Upload site
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

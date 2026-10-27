@@ -41,6 +41,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .row > * { min-width: 0; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .seg.four { grid-template-columns: repeat(4, 1fr); }
+.seg.five { grid-template-columns: repeat(5, 1fr); }
+.seg.five button { font-size: 12.5px; padding-inline: 2px; }
 .seg button { border: 0; border-right: 1px solid var(--line); background: var(--bg); color: var(--fg); font: 500 13px var(--font-body); padding: 8px 4px; cursor: pointer; }
 .seg button:last-child { border-right: 0; }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -84,16 +86,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <aside class="rail">
     <header class="brand">
       <h1>Bonefield Forge</h1>
-      <p>Dead trees, skulls, ribcages, barrels and crates for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
+      <p>Dead trees, skulls, ribcages, barrels, crates and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
     </header>
 
     <section class="group" aria-labelledby="h-model">
       <h2 id="h-model">Piece</h2>
-      <div class="seg four" id="cats" role="tablist" aria-label="Piece type">
+      <div class="seg five" id="cats" role="tablist" aria-label="Piece type">
         <button type="button" role="tab" data-cat="Trees" aria-pressed="true">Trees</button>
         <button type="button" role="tab" data-cat="Skulls" aria-pressed="false">Skulls</button>
         <button type="button" role="tab" data-cat="Ribcages" aria-pressed="false">Ribcages</button>
         <button type="button" role="tab" data-cat="Props" aria-pressed="false">Props</button>
+        <button type="button" role="tab" data-cat="Rocks" aria-pressed="false">Rocks</button>
       </div>
       <label class="field" id="modelField" hidden><span class="field-top">Model</span>
         <select id="model"></select></label>
@@ -116,6 +119,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <input id="bark" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label class="field"><span class="field-top">Thinnest twig <output id="o-twig"></output></span>
         <input id="twig" type="range" min="0.8" max="2" step="0.1" value="1.1"></label>
+    </section>
+
+    <section class="group" id="rockParams" aria-labelledby="h-rock" hidden>
+      <h2 id="h-rock">Shape</h2>
+      <label class="field"><span class="field-top">Size <output id="o-rsize"></output></span>
+        <input id="rsize" type="range" min="0.4" max="2.5" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Roughness <output id="o-rough"></output></span>
+        <input id="rough" type="range" min="0" max="2" step="0.1" value="1"></label>
+      <label class="field"><span class="field-top">Angularity <output id="o-angular"></output></span>
+        <input id="angular" type="range" min="0" max="1" step="0.05" value="1"></label>
+      <p class="hint">High angularity gives fractured desert stone with flat faces. Low angularity gives rounded, weathered stones.</p>
     </section>
 
     <section class="group" id="boneParams" aria-labelledby="h-bone" hidden>
@@ -177,7 +191,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 
   // ---------- model picker ----------
   const sel = $('model');
-  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel' };
+  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel', Rocks: 'rock_boulder' };
   const tabScale = { Skulls: 0.25, Ribcages: 0.25, Props: 0.2 };
   const scaleHints = {
     Skulls: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
@@ -207,16 +221,18 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     height: (v) => '×' + (+v).toFixed(2), gnarl: (v) => '×' + (+v).toFixed(2), thickness: (v) => '×' + (+v).toFixed(2),
     bark: (v) => '×' + (+v).toFixed(1), twig: (v) => (+v).toFixed(1) + ' mm', minbone: (v) => (+v).toFixed(1) + ' mm',
     scale: (v) => '≈1:' + Math.round(10 / v),
+    rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
   };
   const paramIds = Object.keys(fmt);
   function syncOutputs() { for (const id of paramIds) $('o-' + id).textContent = fmt[id]($(id).value); }
   function params() {
     const isTree = M[sel.value].kind === 'tree';
+    if (M[sel.value].rock) return { size: +$('rsize').value, rough: +$('rough').value, angular: +$('angular').value, quality };
     return isTree
       ? { height: +$('height').value, gnarl: +$('gnarl').value, thickness: +$('thickness').value, bark: +$('bark').value, minThick: +$('twig').value, quality }
       : { scale: +$('scale').value, minThick: +$('minbone').value, quality };
   }
-  function showParams() { const t = M[sel.value].kind === 'tree'; $('treeParams').hidden = !t; $('boneParams').hidden = t; }
+  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('boneParams').hidden = t || r; }
 
   // ---------- generation (web worker, main-thread fallback) ----------
   let worker = null, reqId = 0;
@@ -270,6 +286,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8cfbd, roughness: 0.85, metalness: 0 });
   const barkMat = new THREE.MeshStandardMaterial({ color: 0x6e5a47, roughness: 0.95, metalness: 0 });
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a55, roughness: 0.9, metalness: 0 });
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0xa8957d, roughness: 1, metalness: 0 });
   let mesh = null, last = null;
 
   const orbit = { theta: -0.9, phi: 1.15, dist: 120, target: new THREE.Vector3(0, 0, 10) };
@@ -344,7 +361,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       g.setIndex(new THREE.BufferAttribute(r.indices, 1));
       g.computeVertexNormals();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
-      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].wood ? woodMat : boneMat);
+      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
       scene.add(mesh);
       const firstOfModel = !last || last.model !== model;
       last = { model, seed, prm, positions: r.positions, indices: r.indices };

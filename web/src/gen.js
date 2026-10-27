@@ -63,9 +63,10 @@ const GEN = (() => {
     const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
     const fx = x - xi, fy = y - yi, fz = z - zi;
     const u = fx * fx * fx * (fx * (fx * 6 - 15) + 10), v = fy * fy * fy * (fy * (fy * 6 - 15) + 10), w = fz * fz * fz * (fz * (fz * 6 - 15) + 10);
-    const c = (a, b, d) => hash3(xi + a, yi + b, zi + d);
-    const x00 = c(0, 0, 0) + (c(1, 0, 0) - c(0, 0, 0)) * u, x10 = c(0, 1, 0) + (c(1, 1, 0) - c(0, 1, 0)) * u;
-    const x01 = c(0, 0, 1) + (c(1, 0, 1) - c(0, 0, 1)) * u, x11 = c(0, 1, 1) + (c(1, 1, 1) - c(0, 1, 1)) * u;
+    const a000 = hash3(xi, yi, zi), a100 = hash3(xi + 1, yi, zi), a010 = hash3(xi, yi + 1, zi), a110 = hash3(xi + 1, yi + 1, zi);
+    const a001 = hash3(xi, yi, zi + 1), a101 = hash3(xi + 1, yi, zi + 1), a011 = hash3(xi, yi + 1, zi + 1), a111 = hash3(xi + 1, yi + 1, zi + 1);
+    const x00 = a000 + (a100 - a000) * u, x10 = a010 + (a110 - a010) * u;
+    const x01 = a001 + (a101 - a001) * u, x11 = a011 + (a111 - a011) * u;
     const y0 = x00 + (x10 - x00) * v, y1 = x01 + (x11 - x01) * v;
     return y0 + (y1 - y0) * w;                       // 0..1
   }
@@ -460,6 +461,121 @@ const GEN = (() => {
     return [[fnPrim(sh.f, sh.llo, sh.lhi, rotMatrix(rng.uniform(0, Math.PI), 0, 0))], 0.2];
   }
 
+  // ======================================================================
+  // Rocks (units: mm, scaled by the Size slider)
+  // ======================================================================
+  const fbm = (x, y, z, oct) => { let v = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < oct; i++) { v += a * vnoise(x * f + i * 31.7, y * f - i * 17.3, z * f + i * 7.1); n += a; a *= 0.5; f *= 2.03; } return v / n; };
+  const smax = (a, b, k) => { const h = clamp01(0.5 - 0.5 * (b - a) / k); return a * h + b * (1 - h) + k * h * (1 - h); };
+  function randomUnit(rng) { return unit(rng.normal3()); }
+
+  // One rock: an ellipsoid cut by random planes (facets), worn edges, fractal erosion,
+  // and optional horizontal strata ledges (sandstone).
+  function rockShape(rng, { r, rough = 1, angular = 1, strata = 0, z0 = 0, flatTop = null }) {
+    const R = Math.max(...r), np = Math.round(6 + 10 * angular);
+    const planes = Array.from({ length: np }, () => {
+      const n = randomUnit(rng);
+      const ext = Math.hypot(n[0] * r[0], n[1] * r[1], n[2] * r[2]);   // ellipsoid support in that direction
+      return { n, o: ext * (1 - angular * rng.uniform(0.12, 0.4)) };
+    });
+    const PN = new Float64Array(planes.length * 4);
+    planes.forEach((p, i) => { PN[i * 4] = p.n[0]; PN[i * 4 + 1] = p.n[1]; PN[i * 4 + 2] = p.n[2]; PN[i * 4 + 3] = p.o; });
+    const wear = R * (0.025 + 0.12 * (1 - angular)), amp = R * 0.07 * rough, freq = 1.4 / R, seed = rng.uniform(0, 100);
+    const cracks = Array.from({ length: rng.int(1, 4) }, () => { const n = randomUnit(rng); return { n, o: rng.uniform(-0.5, 0.5) * R }; });
+    const layerH = R * rng.uniform(0.18, 0.28), insets = Array.from({ length: 64 }, () => rng.uniform(0, 1));
+    const f = (x, y, z) => {
+      const k0 = Math.hypot(x / r[0], y / r[1], z / r[2]), k1 = Math.hypot(x / (r[0] * r[0]), y / (r[1] * r[1]), z / (r[2] * r[2]));
+      let d = k0 * (k0 - 1) / Math.max(k1, 1e-9);
+      if (d > amp * 0.9 + strata * R * 0.15 + 0.4 || d < -(amp + R * 0.42 + 0.4)) return d;   // far from the surface: skip detail
+      for (let i = 0; i < PN.length; i += 4) {
+        const b = PN[i] * x + PN[i + 1] * y + PN[i + 2] * z - PN[i + 3], df = b - d;
+        if (df >= wear) d = b; else if (df > -wear) { const h = 0.5 - 0.5 * df / wear; d = d * h + b * (1 - h) + wear * h * (1 - h); }
+      }
+      if (flatTop !== null) d = smax(d, z - flatTop, wear);
+      d += amp * (fbm(x * freq + seed, y * freq, z * freq, 3) - 0.5) * 1.6;
+      d += R * 0.018 * rough * (vnoise(x * freq * 9, y * freq * 9, z * freq * 9) - 0.5);   // fine grit
+      for (const c of cracks) {                                     // hairline cracks
+        const t = Math.abs(c.n[0] * x + c.n[1] * y + c.n[2] * z - c.o);
+        if (t < 0.35) d += 0.3 * sstep(1 - t / 0.35);
+      }
+      if (strata) {                                                  // ledges: each layer erodes back by its own amount
+        const t = (z + z0) / layerH, i = Math.floor(t), fr = t - i;
+        const a = insets[((i % 64) + 64) % 64], b = insets[(((i + 1) % 64) + 64) % 64];
+        d += strata * R * 0.09 * (a + (b - a) * sstep((fr - 0.8) / 0.2) + 0.6 * (1 - fr) ** 6);
+      }
+      return d;
+    };
+    const pad = amp + strata * R * 0.15 + 0.8;
+    return { f, llo: r.map((v) => -v - pad), lhi: r.map((v) => v + pad) };
+  }
+  const rockPrim = (sh, c, R = I3(), k = 0.8) => fnPrim(sh.f, sh.llo, sh.lhi, R, c, k);
+  const yaw = (rng) => rotMatrix(rng.uniform(0, 2 * Math.PI), 0, 0);
+  const tumble = (rng) => rotMatrix(rng.uniform(0, 2 * Math.PI), rng.normal(0, 0.35), rng.normal(0, 0.35));
+
+  function rockBoulder(rng, o) {
+    const s = rng.uniform(7, 11), r = [s * rng.uniform(1.0, 1.35), s * rng.uniform(0.8, 1.05), s * rng.uniform(0.6, 0.85)];
+    const sh = rockShape(rng, { r, rough: o.rough, angular: o.angular });
+    return [[rockPrim(sh, [0, 0, r[2] * 0.7], tumble(rng))], 0];
+  }
+  function rockCluster(rng, o) {
+    const P = [], n = rng.int(3, 6);
+    for (let i = 0; i < n; i++) {
+      const big = i === 0, s = big ? rng.uniform(8, 11) : rng.uniform(3, 7);
+      const r = [s * rng.uniform(1, 1.3), s * rng.uniform(0.8, 1), s * rng.uniform(0.55, 0.85)];
+      const a = rng.uniform(0, 2 * Math.PI), dist = big ? 0 : rng.uniform(7, 13);
+      P.push(rockPrim(rockShape(rng, { r, rough: o.rough, angular: o.angular }), [Math.cos(a) * dist, Math.sin(a) * dist, r[2] * rng.uniform(0.45, 0.7)], tumble(rng)));
+    }
+    return [P, 0];
+  }
+  function rockScree(rng, o) {
+    const P = [], n = rng.int(10, 18);
+    for (let i = 0; i < n; i++) {
+      const s = rng.uniform(1.2, 3.6), r = [s * rng.uniform(1, 1.4), s * rng.uniform(0.8, 1.1), s * rng.uniform(0.5, 0.8)];
+      const a = rng.uniform(0, 2 * Math.PI), dist = 14 * Math.sqrt(rng.random());
+      P.push(rockPrim(rockShape(rng, { r, rough: o.rough, angular: o.angular }), [Math.cos(a) * dist, Math.sin(a) * dist, r[2] * 0.55], tumble(rng), 0.3));
+    }
+    return [P, 0];
+  }
+  function rockOutcrop(rng, o) {
+    const P = [];
+    const r = [rng.uniform(14, 19), rng.uniform(9, 13), rng.uniform(8, 12)];
+    P.push(rockPrim(rockShape(rng, { r, rough: o.rough, angular: (o.angular ?? 1) * 0.8, strata: 1, z0: r[2] * 0.3, flatTop: r[2] * rng.uniform(0.35, 0.55) }), [0, 0, r[2] * 0.3], yaw(rng), 1.2));
+    for (let i = 0; i < rng.int(1, 3); i++) {                        // lower shoulders of the same rock
+      const rr = r.map((v) => v * rng.uniform(0.45, 0.65)), a = rng.uniform(0, 2 * Math.PI);
+      P.push(rockPrim(rockShape(rng, { r: rr, rough: o.rough, angular: (o.angular ?? 1) * 0.8, strata: 1, z0: rr[2] * 0.2, flatTop: rr[2] * rng.uniform(0.3, 0.6) }), [Math.cos(a) * r[0] * 0.7, Math.sin(a) * r[1] * 0.7, rr[2] * 0.2], yaw(rng), 1.2));
+    }
+    return [P, 0];
+  }
+  function rockHoodoo(rng, o) {
+    const H = rng.uniform(32, 46), Rb = rng.uniform(7, 9.5), seed = rng.uniform(0, 100), lean = [rng.normal(0, 0.06), rng.normal(0, 0.06)];
+    const capR = Rb * rng.uniform(1.0, 1.35), capH = rng.uniform(4, 6.5), layerH = rng.uniform(2.2, 3.4);
+    const insets = Array.from({ length: 64 }, () => rng.uniform(0, 1)), rough = o.rough ?? 1;
+    const prof = (z) => {                                            // waisted pillar: wide base, thin neck under the cap
+      const u = z / H;
+      return Rb * (1 - 0.5 * Math.sin(Math.PI * Math.min(1, u * 1.1)) ** 1.5 + 0.35 * (1 - u) ** 3) * (1 + 0.12 * Math.sin(u * 9 + seed));
+    };
+    const NT = 1024, profT = new Float64Array(NT + 1);
+    for (let i = 0; i <= NT; i++) profT[i] = prof((H - capH) * i / NT);
+    const profAt = (z) => { const t = z / (H - capH) * NT, i = Math.min(NT - 1, Math.floor(t)), fr = t - i; return profT[i] + (profT[i + 1] - profT[i]) * fr; };
+    const f = (x, y, z) => {
+      const cx = lean[0] * z, cy = lean[1] * z, zz = Math.min(Math.max(z, 0), H - capH);
+      // irregular, vertically fluted cross-section instead of a perfect circle
+      const flute = Rb * 0.28 * rough * (fbm(x * 0.28 + seed, y * 0.28, z * 0.07, 3) - 0.5) * 2;
+      const rho = Math.hypot(x - cx, y - cy) + flute;
+      let d = Math.max(rho - profAt(zz), -z, z - (H - capH * 0.4));
+      const capEdge = capR * (1 + 0.25 * (fbm(x * 0.18 - seed, y * 0.18, 3.3, 3) - 0.5) * 2);
+      const cap = Math.max(Math.hypot(x - cx, y - cy) - capEdge, Math.abs(z - (H - capH / 2)) - capH / 2) - 0.6;
+      d = Math.min(d, cap);
+      if (d > Rb * 0.06 * rough + 1.6 || d < -(Rb * 0.06 * rough + 2)) return d;
+      d += Rb * 0.06 * rough * (fbm(x * 0.5 + seed, y * 0.5, z * 0.5, 3) - 0.5) * 1.6;
+      const t = z / layerH, i = Math.floor(t), fr = t - i;
+      const a = insets[((i % 64) + 64) % 64], b = insets[(((i + 1) % 64) + 64) % 64];
+      d += 0.9 * (a + (b - a) * sstep((fr - 0.8) / 0.2) + 0.5 * (1 - fr) ** 6) * (z < H - capH ? 1 : 0.4);
+      return d;
+    };
+    const m = capR * 1.7 + 4;
+    return [[fnPrim(f, [-m, -m, -1], [m, m, H + 3], I3(), [0, 0, 0], 0.6)], 0];
+  }
+
   const MODELS = {
     tree:           { group: 'Trees', label: 'Dead tree', kind: 'tree' },
     skull_longhorn: { group: 'Skulls', label: 'Longhorn steer skull', fn: (r) => bovineSkull(r, 'longhorn') },
@@ -479,6 +595,11 @@ const GEN = (() => {
     crate:          { group: 'Props', label: 'Wooden crate', fn: (r) => crate(r, 'closed'), smooth: 2, wood: true },
     crate_broken:   { group: 'Props', label: 'Smashed crate', fn: (r) => crate(r, 'broken'), smooth: 2, wood: true },
     crate_stack:    { group: 'Props', label: 'Stacked crates', fn: (r) => crate(r, 'stack'), smooth: 2, wood: true },
+    rock_boulder:   { group: 'Rocks', label: 'Boulder', fn: rockBoulder, rock: true },
+    rock_cluster:   { group: 'Rocks', label: 'Rock cluster', fn: rockCluster, rock: true },
+    rock_scree:     { group: 'Rocks', label: 'Scree (loose stones)', fn: rockScree, rock: true, keepAll: true },
+    rock_outcrop:   { group: 'Rocks', label: 'Layered sandstone outcrop', fn: rockOutcrop, rock: true },
+    rock_hoodoo:    { group: 'Rocks', label: 'Hoodoo (rock pillar with cap)', fn: rockHoodoo, rock: true },
   };
 
   // ======================================================================
@@ -552,7 +673,37 @@ const GEN = (() => {
       const dws = parts.map((q) => q.t === 'cone' ? Math.max(q.r1, q.r2) : 0);
       // Chains: hard-min all segments into a local buffer first, each only over its own box.
       let T = null, B = null; const rx = i1 - i0, ry = j1 - j0, rxy = rx * ry;
-      if (parts.length > 1) {
+      if (p.t === 'fn') {
+        // Custom shapes are costly: sample every 4th voxel first, then evaluate exactly only in
+        // blocks that may contain the surface; elsewhere interpolate the coarse samples.
+        const rz = k1 - k0, BK = 4, cx = Math.ceil((rx - 1) / BK) + 1, cy = Math.ceil((ry - 1) / BK) + 1, cz = Math.ceil((rz - 1) / BK) + 1;
+        const ci = (c, n) => Math.min(c * BK, n - 1);
+        const C = new Float32Array(cx * cy * cz);
+        for (let c2 = 0; c2 < cz; c2++) for (let c1 = 0; c1 < cy; c1++) for (let c0 = 0; c0 < cx; c0++)
+          C[(c2 * cy + c1) * cx + c0] = sdf(p, lo[0] + (i0 + ci(c0, rx)) * voxel, lo[1] + (j0 + ci(c1, ry)) * voxel, lo[2] + (k0 + ci(c2, rz)) * voxel);
+        T = new Float32Array(rxy * rz);
+        const thr = 2.5 * BK * voxel;
+        for (let b2 = 0; b2 < cz - 1 || (cz === 1 && b2 === 0); b2++) for (let b1 = 0; b1 < cy - 1 || (cy === 1 && b1 === 0); b1++) for (let b0 = 0; b0 < cx - 1 || (cx === 1 && b0 === 0); b0++) {
+          const q0 = Math.min(b0 + 1, cx - 1), q1 = Math.min(b1 + 1, cy - 1), q2 = Math.min(b2 + 1, cz - 1);
+          const g = (a0, a1, a2) => C[(a2 * cy + a1) * cx + a0];
+          const v000 = g(b0, b1, b2), v100 = g(q0, b1, b2), v010 = g(b0, q1, b2), v110 = g(q0, q1, b2);
+          const v001 = g(b0, b1, q2), v101 = g(q0, b1, q2), v011 = g(b0, q1, q2), v111 = g(q0, q1, q2);
+          const mn = Math.min(v000, v100, v010, v110, v001, v101, v011, v111), mx = Math.max(v000, v100, v010, v110, v001, v101, v011, v111);
+          const far = mn > thr || mx < -thr;
+          const ia = ci(b0, rx), ib = ci(q0, rx), ja = ci(b1, ry), jb = ci(q1, ry), ka = ci(b2, rz), kb = ci(q2, rz);
+          const ie = q0 === cx - 1 ? rx : ib, je = q1 === cy - 1 ? ry : jb, ke = q2 === cz - 1 ? rz : kb;
+          for (let kk = ka; kk < ke; kk++) for (let j = ja; j < je; j++) for (let i = ia; i < ie; i++) {
+            const ti = kk * rxy + j * rx + i;
+            if (far) {
+              const u = ib > ia ? (i - ia) / (ib - ia) : 0, w = jb > ja ? (j - ja) / (jb - ja) : 0, t = kb > ka ? (kk - ka) / (kb - ka) : 0;
+              const x0 = v000 + (v100 - v000) * u, x1 = v010 + (v110 - v010) * u, x2 = v001 + (v101 - v001) * u, x3 = v011 + (v111 - v011) * u;
+              const y0 = x0 + (x1 - x0) * w, y1 = x2 + (x3 - x2) * w;
+              T[ti] = y0 + (y1 - y0) * t;
+            } else T[ti] = sdf(p, lo[0] + (i0 + i) * voxel, lo[1] + (j0 + j) * voxel, lo[2] + (k0 + kk) * voxel);
+          }
+        }
+        B = new Uint16Array(T.length);
+      } else if (parts.length > 1) {
         T = new Float32Array(rxy * (k1 - k0)).fill(1e9); B = new Uint16Array(T.length);
         parts.forEach((q, qi) => {
           const a0 = Math.max(i0, Math.floor((q.lo[0] - pad - lo[0]) / voxel)), a1 = Math.min(i1, Math.ceil((q.hi[0] + pad - lo[0]) / voxel) + 1);
@@ -623,51 +774,52 @@ const GEN = (() => {
   }
 
   // Naive surface nets: closed mesh, consistent outward winding.
+  const SN_EA = [0, 2, 4, 6, 0, 1, 4, 5, 0, 1, 2, 3], SN_EB = [1, 3, 5, 7, 2, 3, 6, 7, 4, 5, 6, 7];
+  const SN_CX = [0, 1, 0, 1, 0, 1, 0, 1], SN_CY = [0, 0, 1, 1, 0, 0, 1, 1], SN_CZ = [0, 0, 0, 0, 1, 1, 1, 1];
   function surfaceNets({ F, nx, ny, nz }, lo, voxel) {
     const sxy = nx * ny, cell = new Int32Array(nx * ny * nz).fill(-1);
+    const off = SN_CX.map((_, c) => SN_CX[c] + SN_CY[c] * nx + SN_CZ[c] * sxy);
     let pos = new Float32Array(1 << 16), nv = 0;
-    const E = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
-    const C = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]];
     const v = new Float64Array(8);
-    for (let k = 0; k < nz - 1; k++) for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-      const base = k * sxy + j * nx + i;
-      let mask = 0;
-      for (let c = 0; c < 8; c++) {
-        v[c] = F[base + C[c][0] + C[c][1] * nx + C[c][2] * sxy];
-        if (v[c] < 0) mask |= 1 << c;
+    for (let k = 0; k < nz - 1; k++) for (let j = 0; j < ny - 1; j++) {
+      const rowBase = k * sxy + j * nx;
+      for (let i = 0; i < nx - 1; i++) {
+        const base = rowBase + i;
+        let mask = 0;
+        for (let c = 0; c < 8; c++) { const fv = F[base + off[c]]; v[c] = fv; if (fv < 0) mask |= 1 << c; }
+        if (mask === 0 || mask === 255) continue;
+        let sx = 0, sy = 0, sz = 0, cnt = 0;
+        for (let e = 0; e < 12; e++) {
+          const a = SN_EA[e], b = SN_EB[e];
+          if (((mask >> a) & 1) === ((mask >> b) & 1)) continue;
+          const t = v[a] / (v[a] - v[b]);
+          sx += SN_CX[a] + (SN_CX[b] - SN_CX[a]) * t; sy += SN_CY[a] + (SN_CY[b] - SN_CY[a]) * t; sz += SN_CZ[a] + (SN_CZ[b] - SN_CZ[a]) * t; cnt++;
+        }
+        if (nv * 3 + 3 > pos.length) { const np = new Float32Array(pos.length * 2); np.set(pos); pos = np; }
+        pos[nv * 3] = lo[0] + (i + sx / cnt) * voxel; pos[nv * 3 + 1] = lo[1] + (j + sy / cnt) * voxel; pos[nv * 3 + 2] = lo[2] + (k + sz / cnt) * voxel;
+        cell[base] = nv++;
       }
-      if (mask === 0 || mask === 255) continue;
-      let sx = 0, sy = 0, sz = 0, cnt = 0;
-      for (const [a, b] of E) {
-        if (((mask >> a) & 1) === ((mask >> b) & 1)) continue;
-        const t = v[a] / (v[a] - v[b]);
-        sx += C[a][0] + (C[b][0] - C[a][0]) * t; sy += C[a][1] + (C[b][1] - C[a][1]) * t; sz += C[a][2] + (C[b][2] - C[a][2]) * t; cnt++;
-      }
-      if (nv * 3 + 3 > pos.length) { const np = new Float32Array(pos.length * 2); np.set(pos); pos = np; }
-      pos[nv * 3] = lo[0] + (i + sx / cnt) * voxel; pos[nv * 3 + 1] = lo[1] + (j + sy / cnt) * voxel; pos[nv * 3 + 2] = lo[2] + (k + sz / cnt) * voxel;
-      cell[base] = nv++;
     }
     let idx = new Uint32Array(1 << 17), nt = 0;
     const quad = (a, b, c, d, flip) => {
       if (a < 0 || b < 0 || c < 0 || d < 0) return;
       if (nt * 3 + 6 > idx.length) { const ni = new Uint32Array(idx.length * 2); ni.set(idx); idx = ni; }
-      if (flip) { idx.set([a, c, b, a, d, c], nt * 3); } else { idx.set([a, b, c, a, c, d], nt * 3); }
+      const o = nt * 3;
+      if (flip) { idx[o] = a; idx[o + 1] = c; idx[o + 2] = b; idx[o + 3] = a; idx[o + 4] = d; idx[o + 5] = c; }
+      else { idx[o] = a; idx[o + 1] = b; idx[o + 2] = c; idx[o + 3] = a; idx[o + 4] = c; idx[o + 5] = d; }
       nt += 2;
     };
-    for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    for (let k = 1; k < nz; k++) for (let j = 1; j < ny; j++) for (let i = 1; i < nx; i++) {
       const p0 = k * sxy + j * nx + i, in0 = F[p0] < 0;
-      if (i < nx - 1 && j > 0 && k > 0 && in0 !== (F[p0 + 1] < 0))
-        quad(cell[p0 - nx - sxy], cell[p0 - sxy], cell[p0], cell[p0 - nx], !in0);
-      if (j < ny - 1 && i > 0 && k > 0 && in0 !== (F[p0 + nx] < 0))
-        quad(cell[p0 - 1 - sxy], cell[p0 - 1], cell[p0], cell[p0 - sxy], !in0);
-      if (k < nz - 1 && i > 0 && j > 0 && in0 !== (F[p0 + sxy] < 0))
-        quad(cell[p0 - 1 - nx], cell[p0 - nx], cell[p0], cell[p0 - 1], !in0);
+      if (i < nx - 1 && in0 !== (F[p0 + 1] < 0)) quad(cell[p0 - nx - sxy], cell[p0 - sxy], cell[p0], cell[p0 - nx], !in0);
+      if (j < ny - 1 && in0 !== (F[p0 + nx] < 0)) quad(cell[p0 - 1 - sxy], cell[p0 - 1], cell[p0], cell[p0 - sxy], !in0);
+      if (k < nz - 1 && in0 !== (F[p0 + sxy] < 0)) quad(cell[p0 - 1 - nx], cell[p0 - nx], cell[p0], cell[p0 - 1], !in0);
     }
     return { positions: pos.subarray(0, nv * 3), indices: idx.subarray(0, nt * 3) };
   }
 
   // Drop sealed internal voids and tiny loose bits (keeps parts touching the ground).
-  function keepMainParts(positions, indices) {
+  function keepMainParts(positions, indices, minShare = 0.02) {
     const nv = positions.length / 3, parent = new Int32Array(nv);
     for (let i = 0; i < nv; i++) parent[i] = i;
     const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
@@ -681,7 +833,7 @@ const GEN = (() => {
     for (let t = 0; t < indices.length; t += 3) { const r = find(indices[t]); tris.set(r, (tris.get(r) || 0) + 1); }
     if (tris.size <= 1) return { positions, indices };
     const maxT = Math.max(...tris.values());
-    const keep = new Set([...tris].filter(([r, n]) => n >= 0.02 * maxT && zmin.get(r) <= gz + 0.05).map(([r]) => r));
+    const keep = new Set([...tris].filter(([r, n]) => n >= minShare * maxT && zmin.get(r) <= gz + 0.05).map(([r]) => r));
     const remap = new Int32Array(nv).fill(-1); let nn = 0;
     const out = [];
     for (let t = 0; t < indices.length; t += 3) {
@@ -731,8 +883,8 @@ const GEN = (() => {
       lo[2] = -1; voxel = 0.2 / quality;
       texture = { bark: o.bark ?? 1 };
     } else {
-      const S = o.scale ?? 0.25, minR = (o.minThick ?? 0.8) / 2;
-      let bury; [prims, bury] = m.fn(rng);
+      const S = m.rock ? (o.size ?? 1) : (o.scale ?? 0.25), minR = m.rock ? 0 : (o.minThick ?? 0.8) / 2;
+      let bury; [prims, bury] = m.fn(rng, o);
       const scaleP = (p) => {
         if (p.t === 'fn') { p.c = mul(p.c, S); p.s = (p.s || 1) * S; p.k *= S; return; }
         if (p.t === 'chain') p.segs.forEach(scaleP);
@@ -743,21 +895,21 @@ const GEN = (() => {
       prims.forEach(scaleP);
       prims.forEach(prep);
       const adds = prims.filter((p) => p.op === 'add');
-      const dz = -Math.min(...adds.map((p) => p.lo[2])) - bury * S;
+      const dz = m.rock ? 0 : -Math.min(...adds.map((p) => p.lo[2])) - bury * S;   // rocks are placed on the ground already
       const shiftP = (p) => { if (p.t === 'fn') p.c[2] += dz; else if (p.t === 'chain') p.segs.forEach(shiftP); else if (p.t === 'cone') { p.a[2] += dz; p.b[2] += dz; } else p.c[2] += dz; };
       for (const p of prims) { shiftP(p); prep(p); }
       lo = [0, 1, 2].map((i) => Math.min(...adds.map((p) => p.lo[i])) - 1);
       hi = [0, 1, 2].map((i) => Math.max(...adds.map((p) => p.hi[i])) + 1);
       lo[2] = -0.6; hi[2] = Math.max(hi[2], 1);
-      voxel = Math.min(0.2, Math.max(m.wood ? 0.075 : 0.06, Math.max(...sub(hi, lo)) / 420)) / quality;
-      texture = m.wood ? null : { bone: true };
+      voxel = Math.min(0.2, Math.max(m.rock ? 0.09 : m.wood ? 0.075 : 0.06, Math.max(...sub(hi, lo)) / 420)) / quality;
+      texture = m.wood || m.rock ? null : { bone: true };
     }
     const vol = (hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
     voxel = Math.max(voxel, Math.cbrt(vol / (m.kind === 'tree' ? MAX_VOXELS / 2 : MAX_VOXELS)));
     const field = buildField(prims, { lo, hi, voxel, texture });
     let mesh = surfaceNets(field, lo, voxel);
-    mesh = keepMainParts(mesh.positions, mesh.indices);
-    taubin(mesh.positions, mesh.indices, o.smooth ?? m.smooth ?? 8, voxel);
+    mesh = keepMainParts(mesh.positions, mesh.indices, m.keepAll ? 0.0005 : 0.02);
+    taubin(mesh.positions, mesh.indices, o.smooth ?? m.smooth ?? (m.rock ? 3 : 8), voxel);
     const P = mesh.positions, mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
     for (let i = 0; i < P.length; i += 3) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], P[i + c]); mx[c] = Math.max(mx[c], P[i + c]); }
     const cx = (mn[0] + mx[0]) / 2, cy = (mn[1] + mx[1]) / 2;
