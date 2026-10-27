@@ -41,8 +41,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .row > * { min-width: 0; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .seg.four { grid-template-columns: repeat(4, 1fr); }
-.seg.five { grid-template-columns: repeat(5, 1fr); }
-.seg.five button { font-size: 12.5px; padding-inline: 2px; }
+.seg.six { grid-template-columns: repeat(3, 1fr); }
+.seg.six button:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+.seg.six button:nth-child(3n) { border-right: 0; }
 .seg button { border: 0; border-right: 1px solid var(--line); background: var(--bg); color: var(--fg); font: 500 13px var(--font-body); padding: 8px 4px; cursor: pointer; }
 .seg button:last-child { border-right: 0; }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -86,17 +87,18 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <aside class="rail">
     <header class="brand">
       <h1>Basing bits</h1>
-      <p>Dead trees, skulls, ribcages, barrels, crates, fences, shipping containers and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
+      <p>Dead trees, skulls, ribcages, barrels, crates, fences, shipping containers, rocks and textured base toppers for 28mm miniatures. Everything is generated in your browser and exported as printable STL.</p>
     </header>
 
     <section class="group" aria-labelledby="h-model">
       <h2 id="h-model">Piece</h2>
-      <div class="seg five" id="cats" role="tablist" aria-label="Piece type">
+      <div class="seg six" id="cats" role="tablist" aria-label="Piece type">
         <button type="button" role="tab" data-cat="Trees" aria-pressed="true">Trees</button>
         <button type="button" role="tab" data-cat="Skulls" aria-pressed="false">Skulls</button>
         <button type="button" role="tab" data-cat="Ribcages" aria-pressed="false">Ribcages</button>
         <button type="button" role="tab" data-cat="Props" aria-pressed="false">Props</button>
         <button type="button" role="tab" data-cat="Rocks" aria-pressed="false">Rocks</button>
+        <button type="button" role="tab" data-cat="Bases" aria-pressed="false">Bases</button>
       </div>
       <label class="field" id="modelField" hidden><span class="field-top">Model</span>
         <select id="model"></select></label>
@@ -119,6 +121,25 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <input id="bark" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label class="field"><span class="field-top">Thinnest twig <output id="o-twig"></output></span>
         <input id="twig" type="range" min="0.8" max="2" step="0.1" value="1.1"></label>
+    </section>
+
+    <section class="group" id="baseParams" aria-labelledby="h-base" hidden>
+      <h2 id="h-base">Base</h2>
+      <label class="field"><span class="field-top">Base size</span>
+        <select id="baseSize"></select></label>
+      <div class="row" id="customSize" hidden>
+        <label class="field" style="flex:1"><span class="field-top">Top width (mm)</span><input id="cw" type="number" min="10" max="300" step="0.1" value="29"></label>
+        <label class="field" style="flex:1"><span class="field-top">Top depth (mm)</span><input id="cd" type="number" min="10" max="300" step="0.1" value="29"></label>
+      </div>
+      <p class="hint" id="baseHint"></p>
+      <label class="field"><span class="field-top">Fit tolerance <output id="o-tol"></output></span>
+        <input id="tol" type="range" min="0" max="0.8" step="0.05" value="0.2"></label>
+      <label class="field"><span class="field-top">Plate thickness <output id="o-thick"></output></span>
+        <input id="thick" type="range" min="0.6" max="3" step="0.1" value="1.2"></label>
+      <label class="field"><span class="field-top">Relief depth <output id="o-relief"></output></span>
+        <input id="relief" type="range" min="0.3" max="2" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Pattern size <output id="o-psize"></output></span>
+        <input id="psize" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
     </section>
 
     <section class="group" id="rockParams" aria-labelledby="h-rock" hidden>
@@ -193,7 +214,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 
   // ---------- model picker ----------
   const sel = $('model');
-  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel', Rocks: 'rock_boulder' };
+  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel', Rocks: 'rock_boulder', Bases: 'base_cobble' };
   const tabScale = { Skulls: 0.25, Ribcages: 0.25, Props: 0.2 };
   const scaleHints = {
     Skulls: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
@@ -224,18 +245,24 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     bark: (v) => '×' + (+v).toFixed(1), twig: (v) => (+v).toFixed(1) + ' mm', minbone: (v) => (+v).toFixed(1) + ' mm',
     scale: (v) => '≈1:' + Math.round(10 / v),
     bays: (v) => v + (v == 1 ? ' section' : ' sections') + ' · about ' + Math.round(v * 2.35) + ' m',
+    tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2),
     rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
   };
   const paramIds = Object.keys(fmt);
   function syncOutputs() { for (const id of paramIds) $('o-' + id).textContent = fmt[id]($(id).value); }
   function params() {
     const isTree = M[sel.value].kind === 'tree';
+    if (M[sel.value].baseTopper) {
+      const b = $('baseSize').value, custom = b === 'custom';
+      return { base: b, w: custom ? +$('cw').value : undefined, d: custom ? +$('cd').value : undefined,
+        tol: +$('tol').value, thick: +$('thick').value, relief: +$('relief').value, psize: +$('psize').value, quality };
+    }
     if (M[sel.value].rock) return { size: +$('rsize').value, rough: +$('rough').value, angular: +$('angular').value, quality };
     return isTree
       ? { height: +$('height').value, gnarl: +$('gnarl').value, thickness: +$('thickness').value, bark: +$('bark').value, minThick: +$('twig').value, quality }
       : { scale: +$('scale').value, minThick: +$('minbone').value, bays: +$('bays').value, quality };
   }
-  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('boneParams').hidden = t || r; $('baysField').hidden = !M[sel.value].fence; }
+  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock, bt = !!M[sel.value].baseTopper; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('baseParams').hidden = !bt; $('boneParams').hidden = t || r || bt; $('baysField').hidden = !M[sel.value].fence; }
 
   // ---------- generation (web worker, main-thread fallback) ----------
   let worker = null, reqId = 0;
@@ -285,6 +312,21 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   const head = new THREE.SphereGeometry(3.4, 24, 16); head.translate(0, 0, 3 + 7.5 + 17 + 3);
   for (const g of [body, legs, head]) fig.add(new THREE.Mesh(g, figMat));
   scene.add(fig);
+
+  // ghost of the real (tapered) base under a topper, so the fit is visible
+  const ghostMat = new THREE.MeshStandardMaterial({ color: 0x2b3431, roughness: 0.9, transparent: true, opacity: 0.6 });
+  const ghost = new THREE.Mesh(new THREE.BufferGeometry(), ghostMat); ghost.visible = false; scene.add(ghost);
+  const BASE_H = 3.8;
+  function setGhost(prm) {
+    if (!prm || !prm.base) { ghost.visible = false; return; }
+    const info = GEN.BASES.find((q) => q.id === prm.base);
+    let tw, td, bw, bd;
+    if (info) { const m = info.label.match(/([\d.]+)(?: × ([\d.]+))? mm/); bw = +m[1]; bd = m[2] ? +m[2] : bw; tw = info.w; td = info.d; }
+    else { tw = prm.w; td = prm.d; bw = tw + 3; bd = td + 3; }
+    const g = new THREE.CylinderGeometry(tw / 2, bw / 2, BASE_H, 96, 1); g.rotateX(Math.PI / 2); g.translate(0, 0, -BASE_H / 2);
+    g.scale(1, (td / tw + bd / bw) / 2, 1);
+    ghost.geometry.dispose(); ghost.geometry = g; ghost.visible = true;
+  }
 
   const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8cfbd, roughness: 0.85, metalness: 0 });
   const barkMat = new THREE.MeshStandardMaterial({ color: 0x6e5a47, roughness: 0.95, metalness: 0 });
@@ -352,7 +394,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   $('showGrid').addEventListener('change', (e) => { grid.visible = e.target.checked; needs = true; });
 
   // ---------- generate on change ----------
-  let token = 0, timer = null;
+  let token = 0, timer = null, reframe = false;
   function schedule(delay = 250) { clearTimeout(timer); timer = setTimeout(regen, delay); }
   async function regen() {
     const my = ++token, model = sel.value, seed = Math.max(0, Math.floor(+$('seed').value || 0)), prm = params();
@@ -365,9 +407,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       g.setIndex(new THREE.BufferAttribute(r.indices, 1));
       g.computeVertexNormals();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
-      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
+      mesh = new THREE.Mesh(g, M[model].baseTopper ? (M[model].ground === 'planks' ? woodMat : M[model].ground === 'deck' ? steelMat : rockMat) : M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
       scene.add(mesh);
-      const firstOfModel = !last || last.model !== model;
+      setGhost(M[model].baseTopper ? prm : null);
+      const firstOfModel = !last || last.model !== model || reframe; reframe = false;
       last = { model, seed, prm, positions: r.positions, indices: r.indices };
       if (firstOfModel) frameModel(r.size); else fig.position.set(r.size[0] / 2 + 16, r.size[1] * 0.1, 0);
       $('s-size').textContent = r.size.map((v) => v.toFixed(1)).join(' × ') + ' mm';
@@ -382,6 +425,20 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   }
 
   sel.addEventListener('change', () => { lastPick[M[sel.value].group] = sel.value; showParams(); schedule(0); });
+  // base size list: measured tops vs estimates, plus a custom size
+  for (const b of GEN.BASES) { const o = document.createElement('option'); o.value = b.id; o.textContent = `${b.label} · top ${b.w === b.d ? b.w : b.w + ' × ' + b.d} mm${b.measured ? '' : ' (est.)'}`; $('baseSize').append(o); }
+  { const o = document.createElement('option'); o.value = 'custom'; o.textContent = 'Custom top size…'; $('baseSize').append(o); }
+  $('baseSize').value = 'r32';
+  function baseHint() {
+    const b = GEN.BASES.find((q) => q.id === $('baseSize').value);
+    $('customSize').hidden = !!b;
+    $('baseHint').textContent = !b ? 'Measure the flat top of your base with calipers and enter it here.'
+      : b.measured ? 'Top size measured on Citadel bases. The topper is made this size minus the fit tolerance.'
+      : 'Top size estimated from the taper of measured Citadel bases. Check one of your bases with calipers, or use a custom size.';
+  }
+  baseHint();
+  $('baseSize').addEventListener('change', () => { baseHint(); reframe = true; schedule(0); });
+  for (const id of ['cw', 'cd']) $(id).addEventListener('change', () => { reframe = true; schedule(0); });
   $('seed').addEventListener('change', () => schedule(0));
   $('reroll').addEventListener('click', () => { $('seed').value = Math.floor(Math.random() * 100000); schedule(0); });
   for (const id of paramIds) $(id).addEventListener('input', () => { if (id === 'scale' && tabScale[curCat]) tabScale[curCat] = +$('scale').value; syncOutputs(); schedule(350); });
@@ -393,7 +450,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   // ---------- export ----------
   let downloads = null, dlReady = false;
   function setExportEnabled(on) { $('dlOne').disabled = !(on && downloads); $('dlBatch').disabled = !(on && downloads); }
-  const fileBase = (model, seed) => `${model}_seed${seed}`;
+  const fileBase = (model, seed, prm) => `${model}${prm && prm.base ? '_' + (prm.base === 'custom' ? prm.w + 'x' + prm.d + 'mm' : prm.base) : ''}_seed${seed}`;
   // Inside claude.ai the page uses the platform's download capability (which accepts .zip but not .stl).
   // Opened anywhere else (a local file, GitHub Pages), it saves files with a normal browser download.
   const inClaude = !!(window.claude && window.claude.use);
@@ -412,7 +469,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   }
   $('dlOne').addEventListener('click', async () => {
     if (!last) return;
-    const name = fileBase(last.model, last.seed);
+    const name = fileBase(last.model, last.seed, last.prm);
     const stl = GEN.toSTL(last.positions, last.indices, name);
     if (inClaude) await save(name + '.zip', GEN.toZip([{ name: name + '.stl', data: stl }]));
     else await save(name + '.stl', stl, 'model/stl');
@@ -426,7 +483,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       for (let i = 0; i < n; i++) {
         $('busy').textContent = `Building variant ${i + 1} of ${n}…`;
         const r = await run(model, seed0 + i, prm);
-        const name = fileBase(model, seed0 + i);
+        const name = fileBase(model, seed0 + i, prm);
         files.push({ name: name + '.stl', data: GEN.toSTL(r.positions, r.indices, name) });
       }
       $('busy').hidden = true;

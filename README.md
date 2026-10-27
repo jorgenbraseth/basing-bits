@@ -1,6 +1,6 @@
 # basing-bits
 
-Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates, fences, shipping containers and rocks. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
+Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates, fences, shipping containers, rocks and textured base toppers. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
 
 ## The web generator
 
@@ -16,12 +16,26 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 | Ribcages | Cattle (on its back), horse (on its side), goat, giant beast |
 | Props | Barrel, barrel on its side, broken barrel, crate, smashed crate, stacked crates, post-and-rail fence, picket fence, broken fence (fences: 1–5 bays, each about 2.3 m), shipping containers: 20 ft, 40 ft, opened, wrecked and half buried |
 | Rocks | Boulder, rock cluster, scree (loose stones), layered sandstone outcrop, hoodoo (rock pillar with cap); size, roughness, angularity |
+| Bases | Textured toppers cut to the top surface of a base: cobblestones, wooden planks, flagstones, cracked earth, sand and pebbles, industrial deck plate |
 
 ### Scale
 
 Skulls, ribcages and props are modelled in real-world centimetres and scaled with the **Model scale** slider (mm per real cm). The defaults are 1:40 for bones, slightly heroic so they read well on the table, and 1:50 for props. Strict 28mm is about 1:56. Rocks have no real-world scale; the **Size** slider scales them directly (at ×1 a boulder is about 20 mm across).
 
 The thinnest twig or bone has a minimum thickness (default 1.1 mm for trees, 0.8 mm for bones). Plank seams on barrels and crates are about 0.2 mm deep, so they show best on resin printers.
+
+### Base toppers
+
+Citadel bases taper: the stated size is the bottom, and the flat top is smaller. Toppers are cut to the top, minus a fit tolerance (default 0.2 mm), so they sit inside the rim.
+
+| Base | Top surface used |
+|---|---|
+| 25 / 28.5 / 32 / 40 / 50 / 60 mm round | 23 / 26* / 29 / 37 / 47 / 56 mm |
+| 80 / 90 / 100 / 130 / 160 mm round | 76* / 86* / 96* / 126* / 156* mm |
+| 60×35 / 75×42 / 90×52 mm oval | 57×32* / 72×39* / 87×49* mm |
+| 105×70 / 120×92 / 150×95 / 170×105 mm oval | 101×66* / 116×88* / 146×91* / 166×101* mm |
+
+The 25, 32, 40, 50 and 60 mm tops are measured values, given identically by [Customeeple](https://www.customeeple.com/base-top-size-guide/) and [Getwarsplay](https://www.getwarsplay.com/blogs/news/how-tall-are-warhammer-bases-base-height-explained). Sizes marked * are estimates from the same 1.5–2 mm per-side taper. Measure one of your bases with calipers if you can, and use **Custom top size** in the page.
 
 ### How it works
 

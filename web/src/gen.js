@@ -739,6 +739,167 @@ const GEN = (() => {
     return [[fnPrim(sh.f, sh.llo, sh.lhi, I3(), [0, 0, 0], 2)], 0.5];
   }
 
+  // ======================================================================
+  // Base toppers: textured ground plates cut to the TOP surface of a base.
+  // Each ground type is a height function h(x, y) in mm on top of a flat plate.
+  // ======================================================================
+  // GW bases taper inward; toppers must match the top, not the stated (bottom) size.
+  // Measured tops (two hobby sources agree): 25->23, 32->29, 40->37, 50->47, 60->56.
+  // The rest are estimated from the same 1-2 mm per-side taper.
+  const BASES = [
+    { id: 'r25', label: '25 mm round', w: 23, d: 23, measured: true },
+    { id: 'r28', label: '28.5 mm round', w: 26, d: 26 },
+    { id: 'r32', label: '32 mm round', w: 29, d: 29, measured: true },
+    { id: 'r40', label: '40 mm round', w: 37, d: 37, measured: true },
+    { id: 'r50', label: '50 mm round', w: 47, d: 47, measured: true },
+    { id: 'r60', label: '60 mm round', w: 56, d: 56, measured: true },
+    { id: 'r80', label: '80 mm round', w: 76, d: 76 },
+    { id: 'r90', label: '90 mm round', w: 86, d: 86 },
+    { id: 'r100', label: '100 mm round', w: 96, d: 96 },
+    { id: 'r130', label: '130 mm round', w: 126, d: 126 },
+    { id: 'r160', label: '160 mm round', w: 156, d: 156 },
+    { id: 'o60', label: '60 × 35 mm oval', w: 57, d: 32 },
+    { id: 'o75', label: '75 × 42 mm oval', w: 72, d: 39 },
+    { id: 'o90', label: '90 × 52 mm oval', w: 87, d: 49 },
+    { id: 'o105', label: '105 × 70 mm oval', w: 101, d: 66 },
+    { id: 'o120', label: '120 × 92 mm oval', w: 116, d: 88 },
+    { id: 'o150', label: '150 × 95 mm oval', w: 146, d: 91 },
+    { id: 'o170', label: '170 × 105 mm oval', w: 166, d: 101 },
+  ];
+
+  // 2D cellular (Worley) noise: nearest and second-nearest feature points in a jittered grid.
+  function worley(x, y, seed, jitter = 0.8, rowShift = 0) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    let f1 = 1e9, f2 = 1e9, id = 0, cx = 0, cy = 0;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -2; di <= 2; di++) {
+      const gy = yi + dj, sh = rowShift && (gy & 1) ? rowShift : 0, gx = Math.floor(x - sh) + di;
+      const px = gx + sh + 0.5 + jitter * (hash3(gx, gy, seed) - 0.5), py = gy + 0.5 + jitter * (hash3(gx, gy, seed + 1) - 0.5);
+      const dx = x - px, dy = y - py, dd = Math.sqrt(dx * dx + dy * dy);
+      if (dd < f1) { f2 = f1; f1 = dd; id = hash3(gx, gy, seed + 2); cx = px; cy = py; } else if (dd < f2) f2 = dd;
+    }
+    return { f1, f2, e: (f2 - f1) * 0.5, id, cx, cy };
+  }
+
+  function groundHeight(type, rng, { relief = 1, psize = 1, a, b }) {
+    const seed = rng.int(1, 1e6), R = relief, S = psize;
+    const ang = rng.uniform(0, Math.PI);
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const rot = (x, y) => [x * ca + y * sa, -x * sa + y * ca];
+    if (type === 'cobble') {                                        // domed stones in offset rows
+      const sx = 3.0 * S, sy = 2.4 * S;
+      return (x, y) => {
+        const [u, v] = rot(x, y), w = worley(u / sx, v / sy, seed, 0.5, 0.5);
+        const dome = Math.sqrt(Math.max(0, 1 - 0.75 * Math.min(1, w.f1 / 0.62) ** 2));   // rounded, pillow-like tops
+        return R * (0.15 + (0.6 + 0.18 * w.id) * sstep(w.e / 0.2) * dome + 0.05 * (vnoise(x * 2.5, y * 2.5, seed) - 0.5));
+      };
+    }
+    if (type === 'flagstone') {                                     // big irregular slabs, each slightly tilted
+      const sc = 6.5 * S;
+      return (x, y) => {
+        const w = worley(x / sc, y / sc, seed, 0.9);
+        const tx = (hash3(Math.floor(w.cx * 97), Math.floor(w.cy * 89), seed) - 0.5) * 0.06, ty = (hash3(Math.floor(w.cx * 61), Math.floor(w.cy * 53), seed) - 0.5) * 0.06;
+        const sunk = w.id < 0.08 ? -0.25 : 0;
+        const top = 0.55 + 0.12 * w.id + sunk + tx * (x - w.cx * sc) + ty * (y - w.cy * sc);
+        return R * (0.12 + Math.max(0, top) * sstep(w.e / 0.045) + 0.04 * (vnoise(x * 1.8, y * 1.8, seed) - 0.5));
+      };
+    }
+    if (type === 'planks') {                                        // floorboards with butt joints, nails, a few gone
+      const pw = 2.6 * S, gap = 0.22, nail = 0.17;
+      return (x, y) => {
+        const [u, v] = rot(x, y), k = Math.floor(v / pw), fv = v - k * pw;
+        const len = (12 + 9 * hash3(k, 7, seed)) * S, off = hash3(k, 3, seed) * len;
+        const j = Math.floor((u + off) / len), fu = u + off - j * len;
+        const pid = hash3(k, j, seed + 5);
+        if (pid < 0.05) return R * 0.08;                             // missing board
+        const edge = Math.min(fv, pw - fv, fu, len - fu);
+        let h = 0.5 + 0.08 * (pid - 0.5) + 0.03 * Math.sin(fu / len * Math.PI);   // slight warp
+        h += 0.06 * (vnoise(u * 0.35, v * 3.5, seed + k) - 0.5);    // grain along the board
+        for (const nu of [0.55, len - 0.55]) for (const nv of [pw * 0.28, pw * 0.72]) {
+          const r = Math.hypot(fu - nu, fv - nv); if (r < nail) h += 0.06 * (1 - (r / nail) ** 2);
+        }
+        return R * (0.12 + h * sstep((edge - gap / 2) / 0.12));
+      };
+    }
+    if (type === 'cracked') {                                       // dried mud: curled plates, deep cracks
+      const sc = 3.6 * S;
+      return (x, y) => {
+        const w = worley(x / sc, y / sc, seed, 0.95), w2 = worley(x / (sc * 0.62), y / (sc * 0.62), seed + 11, 0.95);
+        const crack = sstep(w.e / 0.05), fine = 1 - 0.25 * (1 - sstep(w2.e / 0.025)) * (w2.id < 0.45 ? 1 : 0);   // only some cells get fine cracks
+        const curl = 0.12 * sstep(1 - w.e / 0.18);                  // edges curl up a little
+        return R * (0.1 + (0.45 + 0.1 * w.id + curl) * crack * fine + 0.05 * (fbm(x * 0.8, y * 0.8, seed, 3) - 0.5));
+      };
+    }
+    if (type === 'sand') {                                          // wind ripples with scattered pebbles and a few rocks
+      const rocks = Array.from({ length: rng.int(1, 4) }, () => {
+        const t = rng.uniform(0, 2 * Math.PI), rr = Math.sqrt(rng.uniform(0.1, 0.7));
+        return { x: Math.cos(t) * a * rr, y: Math.sin(t) * b * rr, r: rng.uniform(1.4, 2.8) * S, h: rng.uniform(0.9, 1.6) };
+      });
+      return (x, y) => {
+        const [u] = rot(x, y);
+        let h = 0.35 + 0.1 * Math.sin(u * 2.6 / S + 1.6 * fbm(x * 0.25, y * 0.25, seed, 2)) + 0.08 * (fbm(x * 0.6, y * 0.6, seed + 3, 3) - 0.5);
+        const w = worley(x / (1.6 * S), y / (1.6 * S), seed + 7, 0.9);
+        if (w.id < 0.3) { const pr = (0.22 + 0.3 * w.id) ; if (w.f1 < pr) h = Math.max(h, 0.3 + 0.9 * Math.sqrt(pr * pr - w.f1 * w.f1) * 1.6 * S); }
+        for (const r of rocks) {
+          const dd = Math.hypot(x - r.x, y - r.y) / r.r;
+          if (dd < 1.15) h = Math.max(h, 0.25 + r.h * Math.sqrt(Math.max(0, 1 - dd * dd)) * (1 + 0.25 * (vnoise(x * 1.5, y * 1.5, seed + 9) - 0.5)));
+        }
+        return R * h;
+      };
+    }
+    // 'deck': industrial plate panels with tread pattern and rivets
+    const P = rng.uniform(10, 14) * S, sp = 1.5 * S;
+    return (x, y) => {
+      const [u, v] = rot(x, y);
+      const pu = Math.floor(u / P), pv = Math.floor(v / P), fu = u - pu * P, fv = v - pv * P;
+      const seam = Math.min(fu, P - fu, fv, P - fv);
+      const plain = hash3(pu, pv, seed) < 0.3;
+      let h = 0.45 + (hash3(pu, pv, seed + 1) - 0.5) * 0.06;
+      if (!plain) {                                                 // diamond tread: lozenges alternating direction
+        const cu = Math.floor(fu / sp), cv = Math.floor(fv / sp), lu = fu - (cu + 0.5) * sp, lv = fv - (cv + 0.5) * sp;
+        const flip = (cu + cv) & 1, q = flip ? (Math.abs(lu + lv) / (0.95 * sp) + Math.abs(lu - lv) / (0.3 * sp)) : (Math.abs(lu - lv) / (0.95 * sp) + Math.abs(lu + lv) / (0.3 * sp));
+        h += 0.13 * sstep((1 - q) / 0.25);
+      }
+      const ri = 0.6 * S, rs = 2.2 * S;                              // rivets along panel edges
+      const ru = Math.min(fu, P - fu), rv = Math.min(fv, P - fv);
+      let rd = 1e9;
+      if (ru < ri + 0.4) rd = Math.min(rd, Math.hypot(ru - ri, ((fv + rs / 2) % rs) - rs / 2));
+      if (rv < ri + 0.4) rd = Math.min(rd, Math.hypot(rv - ri, ((fu + rs / 2) % rs) - rs / 2));
+      if (rd < 0.28) h += 0.18 * Math.sqrt(1 - (rd / 0.28) ** 2);
+      return R * (0.1 + h * sstep((seam - 0.15) / 0.1));
+    };
+  }
+
+  function buildBaseField(model, rng, o) {
+    const base = BASES.find((q) => q.id === o.base) || BASES[2];
+    const tol = o.tol ?? 0.2, w = (o.w ?? base.w) - tol, dpt = (o.d ?? base.d) - tol;
+    const a = w / 2, b = dpt / 2, thick = o.thick ?? 1.2;
+    const h = groundHeight(MODELS[model].ground, rng, { relief: o.relief ?? 1, psize: o.psize ?? 1, a, b });
+    const voxel = Math.min(0.2, Math.max(0.07, Math.max(w, dpt) / 420)) / (o.quality ?? 1);
+    const zmax = thick + 2.5 * (o.relief ?? 1) + 0.6;
+    const lo = [-a - 0.6, -b - 0.6, -0.6], hi = [a + 0.6, b + 0.6, zmax];
+    const nx = Math.ceil((hi[0] - lo[0]) / voxel) + 1, ny = Math.ceil((hi[1] - lo[1]) / voxel) + 1, nz = Math.ceil((hi[2] - lo[2]) / voxel) + 1;
+    const F = new Float32Array(nx * ny * nz), sxy = nx * ny;
+    const m = Math.min(a, b);
+    for (let j = 0; j < ny; j++) {
+      const y = lo[1] + j * voxel;
+      for (let i = 0; i < nx; i++) {
+        const x = lo[0] + i * voxel;
+        // ellipse outline (exact zero set), with a small chamfer on the top edge
+        const k0 = Math.hypot(x / a, y / b), k1 = Math.hypot(x / (a * a), y / (b * b));
+        const out = k1 > 1e-9 ? k0 * (k0 - 1) / k1 : -m;
+        const top = thick + (out > -3 ? h(x, y) : h(x, y));
+        const chamferTop = top - Math.max(0, 0.35 + out) * 0.9;
+        for (let k = 0; k < nz; k++) {
+          const z = lo[2] + k * voxel;
+          let f = Math.max(out, (z - chamferTop) * 0.7, -z);
+          if (i === 0 || j === 0 || k === 0 || i === nx - 1 || j === ny - 1 || k === nz - 1) f = 1;
+          F[k * sxy + j * nx + i] = f;
+        }
+      }
+    }
+    return { field: { F, nx, ny, nz }, lo, voxel, size: [w, dpt] };
+  }
+
   const MODELS = {
     tree:           { group: 'Trees', label: 'Dead tree', kind: 'tree' },
     skull_longhorn: { group: 'Skulls', label: 'Longhorn steer skull', fn: (r) => bovineSkull(r, 'longhorn') },
@@ -765,6 +926,12 @@ const GEN = (() => {
     container_40:   { group: 'Props', label: 'Shipping container, 40 ft', fn: (r) => container(r, 1219, 'closed'), smooth: 1, wood: true, steel: true },
     container_open: { group: 'Props', label: 'Opened container, 20 ft', fn: (r) => container(r, 606, 'open'), smooth: 1, wood: true, steel: true },
     container_wreck:{ group: 'Props', label: 'Wrecked container, half buried', fn: (r) => container(r, 606, 'wreck'), smooth: 1, wood: true, steel: true },
+    base_cobble:    { group: 'Bases', label: 'Cobblestones', ground: 'cobble', baseTopper: true },
+    base_planks:    { group: 'Bases', label: 'Wooden planks', ground: 'planks', baseTopper: true },
+    base_flagstone: { group: 'Bases', label: 'Flagstones', ground: 'flagstone', baseTopper: true },
+    base_cracked:   { group: 'Bases', label: 'Cracked earth', ground: 'cracked', baseTopper: true },
+    base_sand:      { group: 'Bases', label: 'Sand and pebbles', ground: 'sand', baseTopper: true },
+    base_deck:      { group: 'Bases', label: 'Industrial deck plate', ground: 'deck', baseTopper: true },
     rock_boulder:   { group: 'Rocks', label: 'Boulder', fn: rockBoulder, rock: true },
     rock_cluster:   { group: 'Rocks', label: 'Rock cluster', fn: rockCluster, rock: true },
     rock_scree:     { group: 'Rocks', label: 'Scree (loose stones)', fn: rockScree, rock: true, keepAll: true },
@@ -1045,6 +1212,16 @@ const GEN = (() => {
   function generate(model, seed, o = {}) {
     const m = MODELS[model]; if (!m) throw new Error('Unknown model ' + model);
     const rng = makeRng(seed), quality = o.quality ?? 1;
+    if (m.baseTopper) {                                              // ground plates: heightfield straight into the grid
+      const bf = buildBaseField(model, rng, o);
+      let mesh = surfaceNets(bf.field, bf.lo, bf.voxel);
+      mesh = keepMainParts(mesh.positions, mesh.indices);
+      taubin(mesh.positions, mesh.indices, o.smooth ?? 2, bf.voxel);
+      const P = mesh.positions, mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < P.length; i += 3) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], P[i + c]); mx[c] = Math.max(mx[c], P[i + c]); }
+      for (let i = 2; i < P.length; i += 3) P[i] -= mn[2];
+      return { positions: P, indices: mesh.indices, size: sub(mx, mn), voxel: bf.voxel };
+    }
     let prims, texture, lo, hi, voxel;
     if (m.kind === 'tree') {
       prims = deadTree(rng, o); prims.forEach(prep);
@@ -1126,6 +1303,6 @@ const GEN = (() => {
     return out;
   }
 
-  return { generate, toSTL, toZip, MODELS };
+  return { generate, toSTL, toZip, MODELS, BASES };
 })();
 if (typeof module !== 'undefined') module.exports = GEN;
