@@ -1,0 +1,57 @@
+# basing-bits
+
+Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels and crates. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
+
+## Bonefield Forge (web generator)
+
+`web/index.html` is a single self-contained page. All generation runs in the browser with no server: pick a piece, change the seed or sliders, preview it in 3D next to a 28mm figure on a 25 mm base, and download the STL.
+
+- **Run it:** open `web/index.html` in a browser, or host the `web/` folder anywhere static (GitHub Pages works).
+- **Download:** a single piece saves as `.stl`; "Download variants" builds 2–20 consecutive seeds into one `.zip`. File names include the model and seed, so you can always regenerate the same piece.
+
+| Tab | Pieces |
+|---|---|
+| Trees | Dead tree (height, gnarl, trunk thickness, bark depth, thinnest twig) |
+| Skulls | Longhorn steer, bull, cow with broken horn, ram, horse, wolf, giant beast |
+| Ribcages | Cattle (on its back), horse (on its side), goat, giant beast |
+| Props | Barrel, barrel on its side, broken barrel, crate, smashed crate, stacked crates |
+
+### Scale
+
+Skulls, ribcages and props are modelled in real-world centimetres and scaled with the **Model scale** slider (mm per real cm). The defaults are 1:40 for bones, slightly heroic so they read well on the table, and 1:50 for props. Strict 28mm is about 1:56.
+
+The thinnest twig or bone has a minimum thickness (default 1.1 mm for trees, 0.8 mm for bones). Plank seams on barrels and crates are about 0.2 mm deep, so they show best on resin printers.
+
+### How it works
+
+Each piece is a set of primitives (tapered capsules, ellipsoids, and custom distance functions for the barrels and crates), combined into one signed distance field with smooth blends and subtractions. Bark is 3D noise stretched along each branch's direction, so it has no UV seams or poles. The field is meshed with surface nets, smoothed with Taubin smoothing (which doesn't shrink the piece, and keeps the ground cut flat), and cleaned of sealed internal voids and loose bits.
+
+The mesh is closed and outward-facing. A handful of edges per piece can be shared by four triangles (pinch points); PrusaSlicer, Chitubox, Lychee and Cura repair these automatically.
+
+### Editing
+
+| File | What it is |
+|---|---|
+| `web/src/gen.js` | The generator: models, SDF evaluation, meshing, STL and ZIP writers. Runs in the browser and in Node. |
+| `web/src/page.html` | The page UI (Three.js viewport, controls, export). |
+| `web/build.py` | Inlines `gen.js` into `page.html` and writes `web/index.html`. |
+| `web/test/check.js` | Smoke test: builds every model and checks the mesh is closed and outward-facing. |
+
+After changing anything in `web/src/`:
+
+```sh
+cd web
+python3 build.py          # rebuild index.html
+node test/check.js        # optional: build all models (STLs land in test/out/)
+```
+
+`page.html` is also the exact source of the claude.ai artifact version. There it saves through the platform's download capability, which allows `.zip` but not `.stl`. Opened anywhere else, it uses ordinary browser downloads.
+
+## Python scripts (earlier versions)
+
+`python/` holds the first command-line versions. They need `pip install numpy scipy scikit-image matplotlib`.
+
+- `dead_tree_generator.py`: dead trees (`--count`, `--seeds`, `--height`, `--gnarl`, `--thickness`, `--bark`, `--min-twig`, `--render`)
+- `bone_generator.py`: skulls and ribcages (`--models`, `--variants`, `--scale`, `--min-thick`, `--render`)
+
+The web generator is newer. It has smoother joints between bone and branch segments, mesh smoothing, grain-aligned bark (the Python tree wraps bark around a vertical axis, which pinches where branches cross it), and the barrels and crates. Seeds differ between the two because they use different random number generators.

@@ -1,0 +1,434 @@
+<title>Bonefield Forge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: workbench — controls rail on the left, full-height 3D viewport on the right; stacks (viewport first) on phones. */
+:root {
+  --bg: #ECEEE8; --panel: #F7F8F4; --fg: #1C2220; --muted: #5C6661; --line: #D2D8D0;
+  --accent: #9E5F17; --accent-fg: #FFFFFF; --accent-soft: #F1E3CF; --view: #DDE2DA; --danger: #A23B2C;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111513; --panel: #181D1A; --fg: #E4E8E3; --muted: #939E98; --line: #2A322E;
+  --accent: #E2A04B; --accent-fg: #1B1308; --accent-soft: #3A2C19; --view: #0C100E; --danger: #E07A68; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111513; --panel: #181D1A; --fg: #E4E8E3; --muted: #939E98; --line: #2A322E;
+  --accent: #E2A04B; --accent-fg: #1B1308; --accent-soft: #3A2C19; --view: #0C100E; --danger: #E07A68; color-scheme: dark }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-body); }
+.app { display: grid; grid-template-columns: 340px minmax(0, 1fr); height: 100%; }
+.rail { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto;
+  padding-block: 20px 28px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: 20px;
+  display: flex; flex-direction: column; gap: 22px; }
+.brand h1 { font: 700 26px/1.05 var(--font-display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.brand p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.group { display: flex; flex-direction: column; gap: 12px; }
+.group > h2 { margin: 0; font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+label.field { display: grid; gap: 6px; }
+.field-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 500; }
+.field-top output { font: 500 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: 12px; margin: -4px 0 0; }
+select, input[type="number"] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 8px 10px; width: 100%; box-sizing: border-box; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+.row > * { min-width: 0; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg.four { grid-template-columns: repeat(4, 1fr); }
+.seg button { border: 0; border-right: 1px solid var(--line); background: var(--bg); color: var(--fg); font: 500 13px var(--font-body); padding: 8px 4px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.btn { font: 600 14px var(--font-body); border-radius: var(--r); padding: 10px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--bg); color: var(--fg); white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: 0.5; cursor: default; filter: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.check { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.note { font-size: 12px; color: var(--muted); }
+.note.err { color: var(--danger); }
+
+.stage { position: relative; background: var(--view); min-width: 0; min-height: 0; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#view:active { cursor: grabbing; }
+.hud { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
+.chip { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+  font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+.chip b { font-weight: 500; color: var(--muted); margin-right: 6px; font-family: var(--font-body); }
+.busy { position: absolute; top: 16px; right: max(16px, env(safe-area-inset-right, 0px)); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 12px 6px 30px; font-size: 12px; font-weight: 500; }
+.busy::before { content: ""; position: absolute; left: 11px; top: 50%; width: 11px; height: 11px; margin-top: -6.5px;
+  border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tip { position: absolute; top: 16px; left: 16px; font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .busy::before { animation-duration: 2.5s; } }
+
+@media (max-width: 760px) {
+  html, body { height: auto; }
+  .app { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .stage { order: -1; height: 58vh; min-height: 320px; }
+  .rail { border-right: 0; border-top: 1px solid var(--line); overflow: visible;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <header class="brand">
+      <h1>Bonefield Forge</h1>
+      <p>Dead trees, skulls, ribcages, barrels and crates for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
+    </header>
+
+    <section class="group" aria-labelledby="h-model">
+      <h2 id="h-model">Piece</h2>
+      <div class="seg four" id="cats" role="tablist" aria-label="Piece type">
+        <button type="button" role="tab" data-cat="Trees" aria-pressed="true">Trees</button>
+        <button type="button" role="tab" data-cat="Skulls" aria-pressed="false">Skulls</button>
+        <button type="button" role="tab" data-cat="Ribcages" aria-pressed="false">Ribcages</button>
+        <button type="button" role="tab" data-cat="Props" aria-pressed="false">Props</button>
+      </div>
+      <label class="field" id="modelField" hidden><span class="field-top">Model</span>
+        <select id="model"></select></label>
+      <p class="hint" id="treeHint">Gnarled dead tree with roots, knots and broken branches. About 35–50 mm tall at the default height.</p>
+      <div class="field">
+        <span class="field-top"><label for="seed">Variant seed</label></span>
+        <div class="row"><input id="seed" type="number" min="0" max="999999" step="1" value="7"><button class="btn" id="reroll" type="button">Random</button></div>
+      </div>
+    </section>
+
+    <section class="group" id="treeParams" aria-labelledby="h-tree">
+      <h2 id="h-tree">Shape</h2>
+      <label class="field"><span class="field-top">Height <output id="o-height"></output></span>
+        <input id="height" type="range" min="0.5" max="1.8" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Gnarl <output id="o-gnarl"></output></span>
+        <input id="gnarl" type="range" min="0.3" max="1.8" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Trunk thickness <output id="o-thickness"></output></span>
+        <input id="thickness" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Bark depth <output id="o-bark"></output></span>
+        <input id="bark" type="range" min="0" max="2" step="0.1" value="1"></label>
+      <label class="field"><span class="field-top">Thinnest twig <output id="o-twig"></output></span>
+        <input id="twig" type="range" min="0.8" max="2" step="0.1" value="1.1"></label>
+    </section>
+
+    <section class="group" id="boneParams" aria-labelledby="h-bone" hidden>
+      <h2 id="h-bone">Scale</h2>
+      <label class="field"><span class="field-top">Model scale <output id="o-scale"></output></span>
+        <input id="scale" type="range" min="0.15" max="0.4" step="0.01" value="0.25"></label>
+      <p class="hint" id="scaleHint">1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.</p>
+      <label class="field" id="minboneField"><span class="field-top">Thinnest bone <output id="o-minbone"></output></span>
+        <input id="minbone" type="range" min="0.5" max="1.6" step="0.1" value="0.8"></label>
+    </section>
+
+    <section class="group" aria-labelledby="h-q">
+      <h2 id="h-q">Mesh detail</h2>
+      <div class="seg" role="group" aria-labelledby="h-q">
+        <button type="button" data-q="0.7" aria-pressed="false">Draft</button>
+        <button type="button" data-q="1" aria-pressed="true">Normal</button>
+        <button type="button" data-q="1.4" aria-pressed="false">Fine</button>
+      </div>
+      <p class="hint">Fine takes a few times longer and makes larger files.</p>
+    </section>
+
+    <section class="group" aria-labelledby="h-view">
+      <h2 id="h-view">Viewport</h2>
+      <label class="check"><input id="showFig" type="checkbox" checked> 28mm figure on a 25&nbsp;mm base, for scale</label>
+      <label class="check"><input id="showGrid" type="checkbox" checked> 10&nbsp;mm grid</label>
+    </section>
+
+    <section class="group" aria-labelledby="h-export">
+      <h2 id="h-export">Export</h2>
+      <button class="btn primary" id="dlOne" type="button" disabled>Download STL</button>
+      <div class="row">
+        <input id="batchN" type="number" min="2" max="20" value="5" aria-label="Number of variants" style="width:76px;flex:none">
+        <button class="btn" id="dlBatch" type="button" style="flex:1" disabled>Download variants</button>
+      </div>
+      <p class="note" id="exportNote">Files come as a .zip with the STL inside, named with model and seed so you can make the same piece again.</p>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <canvas id="view" aria-label="3D preview of the generated piece. Drag to rotate, scroll or pinch to zoom."></canvas>
+    <div class="tip">Drag to rotate · scroll or pinch to zoom</div>
+    <div class="busy" id="busy" hidden>Generating…</div>
+    <div class="hud">
+      <span class="chip"><b>Size</b><span id="s-size">–</span></span>
+      <span class="chip"><b>Triangles</b><span id="s-tris">–</span></span>
+      <span class="chip"><b>Built in</b><span id="s-time">–</span></span>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script id="gen">
+/*__GEN__*/
+</script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const M = GEN.MODELS;
+
+  // ---------- model picker ----------
+  const sel = $('model');
+  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel' };
+  const tabScale = { Skulls: 0.25, Ribcages: 0.25, Props: 0.2 };
+  const scaleHints = {
+    Skulls: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
+    Ribcages: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
+    Props: 'At 1:50 a barrel stands about 18 mm tall, roughly hip height on a 28mm figure. Plank seams and lid boards are about 0.2 mm deep, so resin shows them best.',
+  };
+  let curCat = 'Trees';
+  function fillModels(cat) {
+    sel.innerHTML = '';
+    for (const [key, m] of Object.entries(M)) if (m.group === cat) {
+      const o = document.createElement('option'); o.value = key; o.textContent = m.label; sel.append(o);
+    }
+    sel.value = lastPick[cat]; curCat = cat;
+    if (tabScale[cat]) { $('scale').value = tabScale[cat]; if (typeof syncOutputs === 'function') syncOutputs(); }
+    if (scaleHints[cat]) $('scaleHint').textContent = scaleHints[cat];
+    $('minboneField').hidden = cat === 'Props';
+    $('modelField').hidden = cat === 'Trees';
+    $('treeHint').hidden = cat !== 'Trees';
+  }
+  fillModels('Trees');
+  document.querySelectorAll('#cats button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#cats button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    fillModels(b.dataset.cat); showParams(); schedule(0);
+  }));
+  let quality = 1;
+  const fmt = {
+    height: (v) => '×' + (+v).toFixed(2), gnarl: (v) => '×' + (+v).toFixed(2), thickness: (v) => '×' + (+v).toFixed(2),
+    bark: (v) => '×' + (+v).toFixed(1), twig: (v) => (+v).toFixed(1) + ' mm', minbone: (v) => (+v).toFixed(1) + ' mm',
+    scale: (v) => '≈1:' + Math.round(10 / v),
+  };
+  const paramIds = Object.keys(fmt);
+  function syncOutputs() { for (const id of paramIds) $('o-' + id).textContent = fmt[id]($(id).value); }
+  function params() {
+    const isTree = M[sel.value].kind === 'tree';
+    return isTree
+      ? { height: +$('height').value, gnarl: +$('gnarl').value, thickness: +$('thickness').value, bark: +$('bark').value, minThick: +$('twig').value, quality }
+      : { scale: +$('scale').value, minThick: +$('minbone').value, quality };
+  }
+  function showParams() { const t = M[sel.value].kind === 'tree'; $('treeParams').hidden = !t; $('boneParams').hidden = t; }
+
+  // ---------- generation (web worker, main-thread fallback) ----------
+  let worker = null, reqId = 0;
+  const pending = new Map();
+  try {
+    const src = $('gen').textContent + `
+      self.onmessage = (e) => {
+        const { id, model, seed, params } = e.data;
+        try {
+          const t0 = performance.now(); const r = GEN.generate(model, seed, params);
+          const P = r.positions.slice(), I = r.indices.slice();
+          self.postMessage({ id, ok: true, positions: P, indices: I, size: r.size, ms: performance.now() - t0 }, [P.buffer, I.buffer]);
+        } catch (err) { self.postMessage({ id, ok: false, error: String(err && err.message || err) }); }
+      };`;
+    worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    worker.onmessage = (e) => { const p = pending.get(e.data.id); if (p) { pending.delete(e.data.id); e.data.ok ? p.res(e.data) : p.rej(new Error(e.data.error)); } };
+    worker.onerror = () => { worker = null; };
+  } catch (e) { worker = null; }
+  function run(model, seed, prm) {
+    if (worker) return new Promise((res, rej) => { const id = ++reqId; pending.set(id, { res, rej }); worker.postMessage({ id, model, seed, params: prm }); });
+    return new Promise((res, rej) => setTimeout(() => {
+      try { const t0 = performance.now(); const r = GEN.generate(model, seed, prm); res({ ...r, ms: performance.now() - t0 }); } catch (err) { rej(err); }
+    }, 30));
+  }
+
+  // ---------- three.js viewport (Z up, mm) ----------
+  const canvas = $('view');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 2000);
+  camera.up.set(0, 0, 1);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6256, 0.75));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85); sun.position.set(60, -80, 120); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-80, 60, 40); scene.add(fill);
+
+  const grid = new THREE.GridHelper(200, 20, 0x888888, 0x888888);
+  grid.rotation.x = Math.PI / 2; grid.material.transparent = true; grid.material.opacity = 0.25; scene.add(grid);
+
+  // 28mm reference figure on a 25mm round base
+  const fig = new THREE.Group();
+  const figMat = new THREE.MeshStandardMaterial({ color: 0x7d8a92, roughness: 0.8, transparent: true, opacity: 0.55 });
+  const baseG = new THREE.CylinderGeometry(12.5, 12.5, 3, 48); baseG.rotateX(Math.PI / 2); baseG.translate(0, 0, 1.5);
+  fig.add(new THREE.Mesh(baseG, figMat));
+  const body = new THREE.CylinderGeometry(4.2, 5, 17, 24); body.rotateX(Math.PI / 2); body.translate(0, 0, 3 + 8.5 + 7);
+  const legs = new THREE.CylinderGeometry(3.6, 3.2, 7.5, 24); legs.rotateX(Math.PI / 2); legs.translate(0, 0, 3 + 3.75);
+  const head = new THREE.SphereGeometry(3.4, 24, 16); head.translate(0, 0, 3 + 7.5 + 17 + 3);
+  for (const g of [body, legs, head]) fig.add(new THREE.Mesh(g, figMat));
+  scene.add(fig);
+
+  const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8cfbd, roughness: 0.85, metalness: 0 });
+  const barkMat = new THREE.MeshStandardMaterial({ color: 0x6e5a47, roughness: 0.95, metalness: 0 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a55, roughness: 0.9, metalness: 0 });
+  let mesh = null, last = null;
+
+  const orbit = { theta: -0.9, phi: 1.15, dist: 120, target: new THREE.Vector3(0, 0, 10) };
+  function placeCamera() {
+    const { theta, phi, dist, target } = orbit;
+    camera.position.set(target.x + dist * Math.sin(phi) * Math.cos(theta), target.y + dist * Math.sin(phi) * Math.sin(theta), target.z + dist * Math.cos(phi));
+    camera.lookAt(target);
+  }
+  let needs = true;
+  function frame() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix(); needs = true;
+    }
+    if (needs) { placeCamera(); renderer.render(scene, camera); needs = false; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // pointer orbit + zoom (mouse, touch, pinch)
+  const pts = new Map(); let pinch0 = 0, dist0 = 0;
+  canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 1) {
+      orbit.theta -= (e.clientX - prev[0]) * 0.008;
+      orbit.phi = Math.min(Math.PI / 2 - 0.02, Math.max(0.08, orbit.phi - (e.clientY - prev[1]) * 0.008));
+    } else if (pts.size === 2) {
+      const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch0 > 0) orbit.dist = Math.min(600, Math.max(15, dist0 * pinch0 / d));
+    }
+    needs = true;
+  });
+  const up = (e) => { pts.delete(e.pointerId); pinch0 = 0; };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); orbit.dist = Math.min(600, Math.max(15, orbit.dist * Math.exp(e.deltaY * 0.0012))); needs = true; }, { passive: false });
+
+  function frameModel(size) {
+    const r = Math.max(size[0], size[1], size[2], 20);
+    orbit.target.set(0, 0, size[2] * 0.4);
+    orbit.dist = r * 2.6 + 25;
+    fig.position.set(size[0] / 2 + 16, size[1] * 0.1, 0);
+  }
+
+  // theme-aware background
+  function applyTheme() {
+    const c = getComputedStyle(document.documentElement).getPropertyValue('--view').trim() || '#dde2da';
+    scene.background = new THREE.Color(c);
+    const dark = new THREE.Color(c).getHSL({}).l < 0.4;
+    grid.material.color.set(dark ? 0x9aa59f : 0x5c6661);
+    needs = true;
+  }
+  applyTheme();
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme); } catch (e) {}
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  $('showFig').addEventListener('change', (e) => { fig.visible = e.target.checked; needs = true; });
+  $('showGrid').addEventListener('change', (e) => { grid.visible = e.target.checked; needs = true; });
+
+  // ---------- generate on change ----------
+  let token = 0, timer = null;
+  function schedule(delay = 250) { clearTimeout(timer); timer = setTimeout(regen, delay); }
+  async function regen() {
+    const my = ++token, model = sel.value, seed = Math.max(0, Math.floor(+$('seed').value || 0)), prm = params();
+    $('busy').hidden = false; $('busy').textContent = 'Generating…';
+    try {
+      const r = await run(model, seed, prm);
+      if (my !== token) return;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
+      g.setIndex(new THREE.BufferAttribute(r.indices, 1));
+      g.computeVertexNormals();
+      if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].wood ? woodMat : boneMat);
+      scene.add(mesh);
+      const firstOfModel = !last || last.model !== model;
+      last = { model, seed, prm, positions: r.positions, indices: r.indices };
+      if (firstOfModel) frameModel(r.size); else fig.position.set(r.size[0] / 2 + 16, r.size[1] * 0.1, 0);
+      $('s-size').textContent = r.size.map((v) => v.toFixed(1)).join(' × ') + ' mm';
+      $('s-tris').textContent = (r.indices.length / 3).toLocaleString('en-US');
+      $('s-time').textContent = (r.ms / 1000).toFixed(1) + ' s';
+      $('busy').hidden = true; needs = true;
+      setExportEnabled(true);
+    } catch (err) {
+      if (my !== token) return;
+      $('busy').textContent = 'Could not build this piece: ' + err.message + '. Try Draft detail or a smaller scale.';
+    }
+  }
+
+  sel.addEventListener('change', () => { lastPick[M[sel.value].group] = sel.value; showParams(); schedule(0); });
+  $('seed').addEventListener('change', () => schedule(0));
+  $('reroll').addEventListener('click', () => { $('seed').value = Math.floor(Math.random() * 100000); schedule(0); });
+  for (const id of paramIds) $(id).addEventListener('input', () => { if (id === 'scale' && tabScale[curCat]) tabScale[curCat] = +$('scale').value; syncOutputs(); schedule(350); });
+  document.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-q]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    quality = +b.dataset.q; schedule(0);
+  }));
+
+  // ---------- export ----------
+  let downloads = null, dlReady = false;
+  function setExportEnabled(on) { $('dlOne').disabled = !(on && downloads); $('dlBatch').disabled = !(on && downloads); }
+  const fileBase = (model, seed) => `${model}_seed${seed}`;
+  // Inside claude.ai the page uses the platform's download capability (which accepts .zip but not .stl).
+  // Opened anywhere else (a local file, GitHub Pages), it saves files with a normal browser download.
+  const inClaude = !!(window.claude && window.claude.use);
+  const browserSave = { save: async ({ filename, data }) => {
+    const url = URL.createObjectURL(data), a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } };
+  async function save(filename, bytes, type = 'application/zip') {
+    const note = $('exportNote');
+    try { await downloads.save({ filename, data: new Blob([bytes], { type }) }); note.className = 'note'; note.textContent = 'Saved ' + filename + '.'; }
+    catch (e) {
+      note.className = 'note' + (e && e.code === 'declined' ? '' : ' err');
+      note.textContent = e && e.code === 'declined' ? 'Download cancelled.' : e && e.code === 'rate_limited' ? 'A download prompt is already open. Finish it, then try again.' : 'The download did not go through (' + ((e && e.code) || 'error') + ').';
+    }
+  }
+  $('dlOne').addEventListener('click', async () => {
+    if (!last) return;
+    const name = fileBase(last.model, last.seed);
+    const stl = GEN.toSTL(last.positions, last.indices, name);
+    if (inClaude) await save(name + '.zip', GEN.toZip([{ name: name + '.stl', data: stl }]));
+    else await save(name + '.stl', stl, 'model/stl');
+  });
+  $('dlBatch').addEventListener('click', async () => {
+    if (!last) return;
+    const n = Math.min(20, Math.max(2, Math.floor(+$('batchN').value || 5)));
+    const model = sel.value, seed0 = Math.max(0, Math.floor(+$('seed').value || 0)), prm = params();
+    const files = []; $('dlBatch').disabled = true; $('dlOne').disabled = true; $('busy').hidden = false;
+    try {
+      for (let i = 0; i < n; i++) {
+        $('busy').textContent = `Building variant ${i + 1} of ${n}…`;
+        const r = await run(model, seed0 + i, prm);
+        const name = fileBase(model, seed0 + i);
+        files.push({ name: name + '.stl', data: GEN.toSTL(r.positions, r.indices, name) });
+      }
+      $('busy').hidden = true;
+      await save(`${model}_seeds${seed0}-${seed0 + n - 1}.zip`, GEN.toZip(files));
+    } catch (err) {
+      $('busy').textContent = 'Could not build the batch: ' + err.message;
+    } finally { setExportEnabled(true); }
+  });
+
+  (async () => {
+    if (!inClaude) {
+      downloads = browserSave;
+      $('exportNote').textContent = 'Single pieces download as .stl; variants come as one .zip. File names include model and seed so you can make the same piece again.';
+    } else {
+      try { downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; }
+    }
+    if (!downloads) {
+      const note = $('exportNote'); note.className = 'note';
+      note.textContent = 'Downloads aren’t available in this view. Open the page in claude.ai to save STL files.';
+    }
+    setExportEnabled(!!last);
+  })();
+
+  syncOutputs(); showParams(); regen();
+})();
+</script>

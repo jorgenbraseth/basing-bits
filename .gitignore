@@ -1,0 +1,6 @@
+web/test/out/
+__pycache__/
+*.pyc
+trees_out/
+bones_out/
+.DS_Store
