@@ -688,7 +688,7 @@ const GEN = (() => {
       if (strata) {                                                  // ledges: each layer erodes back by its own amount
         const t = (z + z0) / layerH, i = Math.floor(t), fr = t - i;
         const a = insets[((i % 64) + 64) % 64], b = insets[(((i + 1) % 64) + 64) % 64];
-        d += strata * R * 0.09 * (a + (b - a) * sstep((fr - 0.8) / 0.2) + 0.6 * (1 - fr) ** 6);
+        d += strata * R * 0.09 * (a + (b - a) * sstep((fr - 0.45) / 0.55));
       }
       return d;
     };
@@ -757,7 +757,7 @@ const GEN = (() => {
       d += Rb * 0.06 * rough * (fbm(x * 0.5 + seed, y * 0.5, z * 0.5, 3) - 0.5) * 1.6;
       const t = z / layerH, i = Math.floor(t), fr = t - i;
       const a = insets[((i % 64) + 64) % 64], b = insets[(((i + 1) % 64) + 64) % 64];
-      d += 0.9 * (a + (b - a) * sstep((fr - 0.8) / 0.2) + 0.5 * (1 - fr) ** 6) * (z < H - capH ? 1 : 0.4);
+      d += 0.9 * (a + (b - a) * sstep((fr - 0.45) / 0.55)) * (z < H - capH ? 1 : 0.4);
       return d;
     };
     const m = capR * 1.7 + 4;
