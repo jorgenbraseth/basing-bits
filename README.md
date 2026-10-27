@@ -2,7 +2,7 @@
 
 Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates and rocks. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
 
-## Bonefield Forge (web generator)
+## The web generator
 
 `web/index.html` is a single self-contained page. All generation runs in the browser with no server: pick a piece, change the seed or sliders, preview it in 3D next to a 28mm figure on a 25 mm base, and download the STL.
 
