@@ -18,6 +18,12 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 | Rocks | Boulder, rock cluster, scree (loose stones), layered sandstone outcrop, hoodoo (rock pillar with cap); size, roughness, angularity |
 | Bases | Textured toppers cut to the top surface of a base: cobblestones, wooden planks, flagstones, cracked earth, sand and pebbles, industrial deck plate, floor tiles, gravel and dirt |
 
+### Composing a scene
+
+**Add piece to scene** bakes the current piece into a scene; switch tabs, generate the next piece and add that too, for example a base topper and then rocks, a skull or a barrel on it. Click a piece in the viewport to select it and drag it to move it (drag empty space to rotate the view). The selected piece has X, Y, height and rotation fields, plus Duplicate and Remove; arrow keys nudge it 1 mm (Shift: 5 mm), Q and E rotate it 15°, Delete removes it.
+
+With **Drop pieces onto the surface below** on, a piece you move settles onto whatever is under its centre and sinks in by the **Sink into surface** amount (0.4 mm by default), so the parts fuse when printed. **Download scene STL** writes every piece, in place, into one STL. Overlapping parts are simply stacked meshes; slicers merge them when they print.
+
 ### Scale
 
 Skulls, ribcages and props are modelled in real-world centimetres and scaled with the **Model scale** slider (mm per real cm). The defaults are 1:40 for bones, slightly heroic so they read well on the table, and 1:50 for props. Strict 28mm is about 1:56. Rocks have no real-world scale; the **Size** slider scales them directly (at ×1 a boulder is about 20 mm across).

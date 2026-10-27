@@ -61,6 +61,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .stage { position: relative; background: var(--view); min-width: 0; min-height: 0; }
 #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 #view:active { cursor: grabbing; }
+.scene-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.scene-list button { width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 8px; font: 500 13px var(--font-body);
+  padding: 7px 10px; border-radius: var(--r); border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.scene-list button span:last-child { color: var(--muted); font: 400 12px var(--font-mono); white-space: nowrap; }
+.scene-list button[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.scene-empty { color: var(--muted); font-size: 12px; margin: 0; }
+.xyz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.xyz label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
 .hud { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
   display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
 .chip { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
@@ -191,11 +199,40 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       </div>
       <p class="note" id="exportNote">Files come as a .zip with the STL inside, named with model and seed so you can make the same piece again.</p>
     </section>
+
+    <section class="group" aria-labelledby="h-scene">
+      <h2 id="h-scene">Scene</h2>
+      <button class="btn" id="addScene" type="button" disabled>Add piece to scene</button>
+      <ul class="scene-list" id="sceneList"></ul>
+      <p class="scene-empty" id="sceneEmpty">Add a piece to start a scene, for example a base topper, then switch tabs and add rocks or props on top. Click a piece in the viewport to select it and drag to move it.</p>
+      <div id="selPanel" class="group" hidden>
+        <div class="xyz">
+          <label for="px">X (mm)<input id="px" type="number" step="0.5"></label>
+          <label for="py">Y (mm)<input id="py" type="number" step="0.5"></label>
+          <label for="pz">Height (mm)<input id="pz" type="number" step="0.1"></label>
+          <label for="pr">Rotation (°)<input id="pr" type="number" step="5"></label>
+        </div>
+        <div class="row">
+          <button class="btn" id="dropSel" type="button" style="flex:1">Drop onto surface</button>
+          <button class="btn" id="dupSel" type="button">Duplicate</button>
+          <button class="btn" id="delSel" type="button">Remove</button>
+        </div>
+        <p class="hint">Arrow keys move 1 mm (Shift: 5 mm), Q and E rotate 15°, Delete removes.</p>
+      </div>
+      <label class="check"><input id="autoDrop" type="checkbox" checked> Drop pieces onto the surface below when moved</label>
+      <label class="field"><span class="field-top">Sink into surface <output id="o-sink"></output></span>
+        <input id="sink" type="range" min="0" max="1.5" step="0.1" value="0.4"></label>
+      <div class="row">
+        <button class="btn" id="dlScene" type="button" style="flex:1" disabled>Download scene STL</button>
+        <button class="btn" id="clearScene" type="button" disabled>Clear</button>
+      </div>
+      <p class="note" id="sceneNote">The scene downloads as one STL with every piece in place. Pieces that overlap are merged by the slicer when it prints.</p>
+    </section>
   </aside>
 
   <main class="stage">
     <canvas id="view" aria-label="3D preview of the generated piece. Drag to rotate, scroll or pinch to zoom."></canvas>
-    <div class="tip">Drag to rotate · scroll or pinch to zoom</div>
+    <div class="tip" id="tip">Drag to rotate · scroll or pinch to zoom</div>
     <div class="busy" id="busy" hidden>Generating…</div>
     <div class="hud">
       <span class="chip"><b>Size</b><span id="s-size">–</span></span>
@@ -330,6 +367,94 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     ghost.geometry.dispose(); ghost.geometry = g; ghost.visible = true;
   }
 
+  // ---------- scene: baked pieces that can be moved and exported together ----------
+  const items = []; let selected = null, nextId = 1;
+  const raycaster = new THREE.Raycaster();
+  const ndc = (e) => { const r = canvas.getBoundingClientRect(); return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); };
+  function pickItem(e) {
+    if (!items.length) return null;
+    raycaster.setFromCamera(ndc(e), camera);
+    const hit = raycaster.intersectObjects(items.map((it) => it.mesh), false)[0];
+    return hit ? { item: items.find((it) => it.mesh === hit.object), point: hit.point } : null;
+  }
+  function dropItem(it) {                                        // settle onto whatever is below the piece's centre
+    const others = items.filter((o) => o !== it).map((o) => o.mesh);
+    it.group.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(it.mesh), c = bb.getCenter(new THREE.Vector3());
+    let z = 0;
+    if (others.length) {
+      raycaster.set(new THREE.Vector3(c.x, c.y, 500), new THREE.Vector3(0, 0, -1));
+      const hit = raycaster.intersectObjects(others, false)[0];
+      if (hit) z = Math.max(0, hit.point.z - +$('sink').value);
+    }
+    it.group.position.z = z;
+  }
+  function selectItem(it) {
+    selected = it;
+    for (const o of items) o.mesh.material.emissive.setHex(o === it ? 0x3a2c10 : 0x000000);
+    renderSceneUI(); needs = true;
+  }
+  function renderSceneUI() {
+    const list = $('sceneList'); list.innerHTML = '';
+    for (const it of items) {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('aria-current', String(it === selected));
+      const a = document.createElement('span'); a.textContent = it.name;
+      const t = document.createElement('span'); t.textContent = (it.indices.length / 3 / 1000).toFixed(0) + 'k tris';
+      b.append(a, t); b.addEventListener('click', () => selectItem(it === selected ? null : it));
+      li.append(b); list.append(li);
+    }
+    $('sceneEmpty').hidden = items.length > 0;
+    $('selPanel').hidden = !selected;
+    $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length;
+    $('tip').textContent = items.length ? 'Click a piece to select it, drag it to move · drag empty space to rotate the view' : 'Drag to rotate · scroll or pinch to zoom';
+    if (selected) {
+      const g = selected.group;
+      $('px').value = g.position.x.toFixed(1); $('py').value = g.position.y.toFixed(1);
+      $('pz').value = g.position.z.toFixed(2); $('pr').value = Math.round(THREE.MathUtils.radToDeg(g.rotation.z));
+    }
+    if (mesh) mesh.material = liveMaterial();
+  }
+  function addItem(src) {                                         // src: { name, model, positions, indices, material, ghostGeo, x, y, rot }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(src.positions, 3));
+    geo.setIndex(new THREE.BufferAttribute(src.indices, 1)); geo.computeVertexNormals(); geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, src.material.clone()), group = new THREE.Group(); group.add(m);
+    if (src.ghostGeo) group.add(new THREE.Mesh(src.ghostGeo.clone(), ghostMat));
+    group.position.set(src.x || 0, src.y || 0, 0); group.rotation.z = src.rot || 0;
+    scene.add(group);
+    const it = { id: nextId++, name: src.name, model: src.model, positions: src.positions, indices: src.indices, material: src.material, ghostGeo: src.ghostGeo, group, mesh: m };
+    items.push(it);
+    if (src.z != null) group.position.z = src.z; else dropItem(it);
+    selectItem(it);
+    return it;
+  }
+  function liveMaterial() {                                        // the unbaked piece shows see-through once a scene exists
+    const base = mesh.userData.baseMat;
+    if (!items.length) return base;
+    if (!mesh.userData.ghostMat) { const g = base.clone(); g.transparent = true; g.opacity = 0.45; g.depthWrite = false; mesh.userData.ghostMat = g; }
+    return mesh.userData.ghostMat;
+  }
+  function removeItem(it) {
+    scene.remove(it.group); it.mesh.geometry.dispose(); it.mesh.material.dispose();
+    items.splice(items.indexOf(it), 1); if (selected === it) selected = null;
+    renderSceneUI(); needs = true;
+  }
+  function sceneSTL() {
+    let nv = 0, nt = 0; for (const it of items) { nv += it.positions.length / 3; nt += it.indices.length / 3; }
+    const P = new Float32Array(nv * 3), I = new Uint32Array(nt * 3), v = new THREE.Vector3();
+    let po = 0, io = 0;
+    for (const it of items) {
+      it.group.updateMatrixWorld(true);
+      const M = it.mesh.matrixWorld, src = it.positions, base = po / 3;
+      for (let i = 0; i < src.length; i += 3) { v.set(src[i], src[i + 1], src[i + 2]).applyMatrix4(M); P[po++] = v.x; P[po++] = v.y; P[po++] = v.z; }
+      for (let i = 0; i < it.indices.length; i++) I[io++] = it.indices[i] + base;
+    }
+    let zmin = Infinity; for (let i = 2; i < P.length; i += 3) zmin = Math.min(zmin, P[i]);
+    for (let i = 2; i < P.length; i += 3) P[i] -= zmin;               // whole scene sits on z = 0
+    return GEN.toSTL(P, I, 'basing bits scene');
+  }
+
   const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8cfbd, roughness: 0.85, metalness: 0 });
   const barkMat = new THREE.MeshStandardMaterial({ color: 0x6e5a47, roughness: 0.95, metalness: 0 });
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a55, roughness: 0.9, metalness: 0 });
@@ -355,12 +480,27 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   requestAnimationFrame(frame);
 
   // pointer orbit + zoom (mouse, touch, pinch)
-  const pts = new Map(); let pinch0 = 0, dist0 = 0;
+  const pts = new Map(); let pinch0 = 0, dist0 = 0, drag = null, downAt = null;
+  const planeHit = (e, z) => { raycaster.setFromCamera(ndc(e), camera); const p = new THREE.Vector3(); return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z), p) ? p : null; };
   canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
+    downAt = [e.clientX, e.clientY];
+    if (pts.size === 1 && e.button === 0) {
+      const hit = pickItem(e);
+      if (hit) {
+        if (hit.item !== selected) selectItem(hit.item);
+        const g = hit.item.group, p = planeHit(e, hit.point.z);
+        drag = p ? { item: hit.item, z: hit.point.z, dx: g.position.x - p.x, dy: g.position.y - p.y, moved: false } : null;
+      }
+    }
+    if (pts.size === 2) { drag = null; const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
   canvas.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return;
     const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (drag && pts.size === 1) {
+      const p = planeHit(e, drag.z);
+      if (p) { drag.item.group.position.x = p.x + drag.dx; drag.item.group.position.y = p.y + drag.dy; drag.moved = true; renderSceneUI(); }
+      needs = true; return;
+    }
     if (pts.size === 1) {
       orbit.theta -= (e.clientX - prev[0]) * 0.008;
       orbit.phi = Math.min(Math.PI / 2 - 0.02, Math.max(0.08, orbit.phi - (e.clientY - prev[1]) * 0.008));
@@ -370,7 +510,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     }
     needs = true;
   });
-  const up = (e) => { pts.delete(e.pointerId); pinch0 = 0; };
+  const up = (e) => {
+    pts.delete(e.pointerId); pinch0 = 0;
+    if (drag) { if (drag.moved && $('autoDrop').checked) dropItem(drag.item); drag = null; renderSceneUI(); needs = true; }
+    else if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 4 && selected && e.type === 'pointerup' && !pickItem(e)) selectItem(null);   // click on empty space deselects
+    downAt = null;
+  };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); orbit.dist = Math.min(600, Math.max(15, orbit.dist * Math.exp(e.deltaY * 0.0012))); needs = true; }, { passive: false });
 
@@ -409,12 +554,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       g.setIndex(new THREE.BufferAttribute(r.indices, 1));
       g.computeVertexNormals();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
-      mesh = new THREE.Mesh(g, M[model].baseTopper ? (M[model].ground === 'planks' ? woodMat : M[model].ground === 'deck' ? steelMat : rockMat) : M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
+      const mat = M[model].baseTopper ? (M[model].ground === 'planks' ? woodMat : M[model].ground === 'deck' ? steelMat : rockMat) : M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat;
+      mesh = new THREE.Mesh(g, mat); mesh.userData.baseMat = mat; mesh.material = liveMaterial();
       scene.add(mesh);
       setGhost(M[model].baseTopper ? prm : null);
       const firstOfModel = !last || last.model !== model || reframe; reframe = false;
       last = { model, seed, prm, positions: r.positions, indices: r.indices };
-      if (firstOfModel) frameModel(r.size); else fig.position.set(r.size[0] / 2 + 16, r.size[1] * 0.1, 0);
+      if (firstOfModel && !items.length) frameModel(r.size); else if (!items.length) fig.position.set(r.size[0] / 2 + 16, r.size[1] * 0.1, 0);   // keep the camera on the scene while composing
       $('s-size').textContent = r.size.map((v) => v.toFixed(1)).join(' × ') + ' mm';
       $('s-tris').textContent = (r.indices.length / 3).toLocaleString('en-US');
       $('s-time').textContent = (r.ms / 1000).toFixed(1) + ' s';
@@ -441,6 +587,53 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   baseHint();
   $('baseSize').addEventListener('change', () => { baseHint(); reframe = true; schedule(0); });
   for (const id of ['cw', 'cd']) $(id).addEventListener('change', () => { reframe = true; schedule(0); });
+
+  // ---------- scene controls ----------
+  $('o-sink').textContent = (+$('sink').value).toFixed(1) + ' mm';
+  $('sink').addEventListener('input', () => { $('o-sink').textContent = (+$('sink').value).toFixed(1) + ' mm'; });
+  $('addScene').addEventListener('click', () => {
+    if (!last) return;
+    const info = M[last.model], extra = last.prm && last.prm.base ? ' · ' + (last.prm.base === 'custom' ? last.prm.w + '×' + last.prm.d : last.prm.base.replace(/^[ro]/, '')) : '';
+    addItem({ name: `${info.label} #${last.seed}${extra}`, model: last.model, positions: last.positions.slice(), indices: last.indices.slice(),
+      material: mesh.userData.baseMat, ghostGeo: info.baseTopper && ghost.visible ? ghost.geometry : null });
+    mesh.visible = false; ghost.visible = false; needs = true;
+  });
+  const setFromFields = () => {
+    if (!selected) return; const g = selected.group;
+    g.position.set(+$('px').value || 0, +$('py').value || 0, Math.max(0, +$('pz').value || 0)); g.rotation.z = THREE.MathUtils.degToRad(+$('pr').value || 0);
+    needs = true;
+  };
+  for (const id of ['px', 'py', 'pz', 'pr']) $(id).addEventListener('change', setFromFields);
+  $('dropSel').addEventListener('click', () => { if (selected) { dropItem(selected); renderSceneUI(); needs = true; } });
+  $('delSel').addEventListener('click', () => { if (selected) removeItem(selected); });
+  $('dupSel').addEventListener('click', () => {
+    if (!selected) return; const s = selected, g = s.group;
+    addItem({ name: s.name, model: s.model, positions: s.positions, indices: s.indices, material: s.material, ghostGeo: s.ghostGeo, x: g.position.x + 8, y: g.position.y + 4, rot: g.rotation.z });
+  });
+  let clearArmed = null;
+  $('clearScene').addEventListener('click', () => {
+    if (!clearArmed) { $('clearScene').textContent = 'Click again to clear'; clearArmed = setTimeout(() => { clearArmed = null; $('clearScene').textContent = 'Clear'; }, 3000); return; }
+    clearTimeout(clearArmed); clearArmed = null; $('clearScene').textContent = 'Clear';
+    while (items.length) removeItem(items[0]);
+    if (mesh) { mesh.visible = true; mesh.material = liveMaterial(); } needs = true;
+  });
+  $('dlScene').addEventListener('click', async () => {
+    if (!items.length) return;
+    const name = `basing_bits_scene_${items.length}_pieces`, stl = sceneSTL();
+    if (inClaude) await save(name + '.zip', GEN.toZip([{ name: name + '.stl', data: stl }]));
+    else await save(name + '.stl', stl, 'model/stl');
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!selected || /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement && document.activeElement.tagName)) return;
+    const g = selected.group, step = e.shiftKey ? 5 : 1;
+    if (e.key === 'ArrowLeft') g.position.x -= step; else if (e.key === 'ArrowRight') g.position.x += step;
+    else if (e.key === 'ArrowUp') g.position.y += step; else if (e.key === 'ArrowDown') g.position.y -= step;
+    else if (e.key === 'q' || e.key === 'Q') g.rotation.z += Math.PI / 12; else if (e.key === 'e' || e.key === 'E') g.rotation.z -= Math.PI / 12;
+    else if (e.key === 'Delete' || e.key === 'Backspace') { removeItem(selected); e.preventDefault(); return; }
+    else return;
+    e.preventDefault(); if (e.key.startsWith('Arrow') && $('autoDrop').checked) dropItem(selected);
+    renderSceneUI(); needs = true;
+  });
   $('seed').addEventListener('change', () => schedule(0));
   $('reroll').addEventListener('click', () => { $('seed').value = Math.floor(Math.random() * 100000); schedule(0); });
   for (const id of paramIds) $(id).addEventListener('input', () => { if (id === 'scale' && tabScale[curCat]) tabScale[curCat] = +$('scale').value; syncOutputs(); schedule(350); });
@@ -451,7 +644,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 
   // ---------- export ----------
   let downloads = null, dlReady = false;
-  function setExportEnabled(on) { $('dlOne').disabled = !(on && downloads); $('dlBatch').disabled = !(on && downloads); }
+  function setExportEnabled(on) { $('dlOne').disabled = !(on && downloads); $('dlBatch').disabled = !(on && downloads); $('addScene').disabled = !on; $('dlScene').disabled = !items.length || !downloads; }
   const fileBase = (model, seed, prm) => `${model}${prm && prm.base ? '_' + (prm.base === 'custom' ? prm.w + 'x' + prm.d + 'mm' : prm.base) : ''}_seed${seed}`;
   // Inside claude.ai the page uses the platform's download capability (which accepts .zip but not .stl).
   // Opened anywhere else (a local file, GitHub Pages), it saves files with a normal browser download.
