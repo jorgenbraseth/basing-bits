@@ -33,9 +33,13 @@ jobs:
 
       - name: Collect site
         run: |
-          mkdir -p _site
+          mkdir -p _site/web
           cp web/index.html _site/index.html
           touch _site/.nojekyll
+          # old address (from the branch-deploy days) forwards to the root
+          printf '%s\n' '<!doctype html><meta charset="utf-8"><title>Bonefield Forge</title>' \
+            '<meta http-equiv="refresh" content="0; url=../">' '<link rel="canonical" href="../">' \
+            '<p><a href="../">Bonefield Forge has moved to the site root</a></p>' > _site/web/index.html
 
       - name: Upload site
         if: github.event_name != 'pull_request'

@@ -48,7 +48,7 @@ node test/check.js        # optional: build all models (STLs land in test/out/)
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml` runs on every push to `main`: it builds `web/index.html` from `web/src/`, smoke-tests every model, and deploys the page to **https://jorgenbraseth.github.io/basing-bits/**. Pull requests get the build and test without deploying. This needs **Settings → Pages → Source: GitHub Actions**.
+`.github/workflows/pages.yml` runs on every push to `main`: it builds `web/index.html` from `web/src/`, smoke-tests every model, and deploys the page to **https://jorgenbraseth.github.io/basing-bits/** (the old `/web/` address forwards there). Pull requests get the build and test without deploying. This needs **Settings → Pages → Source: GitHub Actions**.
 
 You don't need to rebuild before committing; the action does it. The committed `web/index.html` is only there so you can open the generator straight from a download of the repo, and it may lag behind `src/` until you run `python3 web/build.py` yourself.
 
