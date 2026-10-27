@@ -782,8 +782,8 @@ const GEN = (() => {
 
   function groundHeight(type, rng, { relief = 1, psize = 1, a, b }) {
     const seed = rng.int(1, 1e6), R = relief, S = psize;
-    const ang = rng.uniform(0, Math.PI);
-    const ca = Math.cos(ang), sa = Math.sin(ang);
+    rng.uniform(0, Math.PI);                                      // was a random pattern angle; the Rotation control sets it now
+    const ca = 1, sa = 0;
     const rot = (x, y) => [x * ca + y * sa, -x * sa + y * ca];
     if (type === 'cobble') {                                        // domed stones in offset rows
       const sx = 3.0 * S, sy = 2.4 * S;
@@ -847,7 +847,7 @@ const GEN = (() => {
       };
     }
     if (type === 'tiles') {                                         // square floor tiles: grout, a few cracked, chipped or missing
-      const T = rng.uniform(4.2, 5.4) * S, g = 0.13, ta = rng.choice([0, Math.PI / 4]) + rng.normal(0, 0.03);
+      const T = rng.uniform(4.2, 5.4) * S, g = 0.13; rng.choice([0, 1]); rng.normal(0, 0.03); const ta = 0;   // angle comes from Rotation
       const tc = Math.cos(ta), ts = Math.sin(ta);
       return (x, y) => {
         const u = x * tc + y * ts, v = -x * ts + y * tc;
@@ -912,7 +912,9 @@ const GEN = (() => {
     const base = BASES.find((q) => q.id === o.base) || BASES[2];
     const tol = o.tol ?? 0.2, w = (o.w ?? base.w) - tol, dpt = (o.d ?? base.d) - tol;
     const a = w / 2, b = dpt / 2, thick = o.thick ?? 1.2;
-    const h = groundHeight(MODELS[model].ground, rng, { relief: o.relief ?? 1, psize: o.psize ?? 1, a, b });
+    const h0 = groundHeight(MODELS[model].ground, rng, { relief: o.relief ?? 1, psize: o.psize ?? 1, a, b });
+    const th = (o.rot ?? 0) * Math.PI / 180, rc = Math.cos(th), rs = Math.sin(th);
+    const h = th ? (x, y) => h0(x * rc + y * rs, -x * rs + y * rc) : h0;   // turn the pattern about the base centre
     const voxel = Math.min(0.2, Math.max(0.07, Math.max(w, dpt) / 420)) / (o.quality ?? 1);
     const zmax = thick + 2.5 * (o.relief ?? 1) + 0.6;
     const lo = [-a - 0.6, -b - 0.6, -0.6], hi = [a + 0.6, b + 0.6, zmax];

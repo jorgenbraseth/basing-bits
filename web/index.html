@@ -146,6 +146,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <input id="thick" type="range" min="0.6" max="3" step="0.1" value="1.2"></label>
       <label class="field"><span class="field-top">Relief depth <output id="o-relief"></output></span>
         <input id="relief" type="range" min="0.3" max="2" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Rotation <output id="o-rot"></output></span>
+        <input id="rot" type="range" min="0" max="180" step="1" value="0"></label>
       <label class="field"><span class="field-top">Pattern size <output id="o-psize"></output></span>
         <input id="psize" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
     </section>
@@ -997,8 +999,8 @@ const GEN = (() => {
 
   function groundHeight(type, rng, { relief = 1, psize = 1, a, b }) {
     const seed = rng.int(1, 1e6), R = relief, S = psize;
-    const ang = rng.uniform(0, Math.PI);
-    const ca = Math.cos(ang), sa = Math.sin(ang);
+    rng.uniform(0, Math.PI);                                      // was a random pattern angle; the Rotation control sets it now
+    const ca = 1, sa = 0;
     const rot = (x, y) => [x * ca + y * sa, -x * sa + y * ca];
     if (type === 'cobble') {                                        // domed stones in offset rows
       const sx = 3.0 * S, sy = 2.4 * S;
@@ -1062,7 +1064,7 @@ const GEN = (() => {
       };
     }
     if (type === 'tiles') {                                         // square floor tiles: grout, a few cracked, chipped or missing
-      const T = rng.uniform(4.2, 5.4) * S, g = 0.13, ta = rng.choice([0, Math.PI / 4]) + rng.normal(0, 0.03);
+      const T = rng.uniform(4.2, 5.4) * S, g = 0.13; rng.choice([0, 1]); rng.normal(0, 0.03); const ta = 0;   // angle comes from Rotation
       const tc = Math.cos(ta), ts = Math.sin(ta);
       return (x, y) => {
         const u = x * tc + y * ts, v = -x * ts + y * tc;
@@ -1127,7 +1129,9 @@ const GEN = (() => {
     const base = BASES.find((q) => q.id === o.base) || BASES[2];
     const tol = o.tol ?? 0.2, w = (o.w ?? base.w) - tol, dpt = (o.d ?? base.d) - tol;
     const a = w / 2, b = dpt / 2, thick = o.thick ?? 1.2;
-    const h = groundHeight(MODELS[model].ground, rng, { relief: o.relief ?? 1, psize: o.psize ?? 1, a, b });
+    const h0 = groundHeight(MODELS[model].ground, rng, { relief: o.relief ?? 1, psize: o.psize ?? 1, a, b });
+    const th = (o.rot ?? 0) * Math.PI / 180, rc = Math.cos(th), rs = Math.sin(th);
+    const h = th ? (x, y) => h0(x * rc + y * rs, -x * rs + y * rc) : h0;   // turn the pattern about the base centre
     const voxel = Math.min(0.2, Math.max(0.07, Math.max(w, dpt) / 420)) / (o.quality ?? 1);
     const zmax = thick + 2.5 * (o.relief ?? 1) + 0.6;
     const lo = [-a - 0.6, -b - 0.6, -0.6], hi = [a + 0.6, b + 0.6, zmax];
@@ -1602,7 +1606,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     bark: (v) => '×' + (+v).toFixed(1), twig: (v) => (+v).toFixed(1) + ' mm', minbone: (v) => (+v).toFixed(1) + ' mm',
     scale: (v) => '≈1:' + Math.round(10 / v),
     bays: (v) => v + (v == 1 ? ' section' : ' sections') + ' · about ' + Math.round(v * 2.35) + ' m',
-    tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2),
+    tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2), rot: (v) => Math.round(v) + '°',
     rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
   };
   const paramIds = Object.keys(fmt);
@@ -1612,7 +1616,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     if (M[sel.value].baseTopper) {
       const b = $('baseSize').value, custom = b === 'custom';
       return { base: b, w: custom ? +$('cw').value : undefined, d: custom ? +$('cd').value : undefined,
-        tol: +$('tol').value, thick: +$('thick').value, relief: +$('relief').value, psize: +$('psize').value, quality };
+        tol: +$('tol').value, thick: +$('thick').value, relief: +$('relief').value, psize: +$('psize').value, rot: +$('rot').value, quality };
     }
     if (M[sel.value].rock) return { size: +$('rsize').value, rough: +$('rough').value, angular: +$('angular').value, quality };
     return isTree

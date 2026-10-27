@@ -37,6 +37,8 @@ Citadel bases taper: the stated size is the bottom, and the flat top is smaller.
 
 The 25, 32, 40, 50 and 60 mm tops are measured values, given identically by [Customeeple](https://www.customeeple.com/base-top-size-guide/) and [Getwarsplay](https://www.getwarsplay.com/blogs/news/how-tall-are-warhammer-bases-base-height-explained). Sizes marked * are estimates from the same 1.5–2 mm per-side taper. Measure one of your bases with calipers if you can, and use **Custom top size** in the page.
 
+The **Rotation** slider (0–180°) turns the ground pattern about the centre of the base, for example to run planks or tile lines along an oval or at 45° to the front of the model. The outline never moves.
+
 ### How it works
 
 Each piece is a set of primitives (tapered capsules, ellipsoids, and custom distance functions for the barrels and crates), combined into one signed distance field with smooth blends and subtractions. Bark is 3D noise stretched along each branch's direction, so it has no UV seams or poles. Rocks are ellipsoids cut by random planes (fracture faces), with fractal erosion and, for sandstone, ledges per layer. The field is meshed with surface nets, smoothed with Taubin smoothing (which doesn't shrink the piece, and keeps the ground cut flat), and cleaned of sealed internal voids and loose bits.

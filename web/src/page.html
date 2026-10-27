@@ -138,6 +138,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <input id="thick" type="range" min="0.6" max="3" step="0.1" value="1.2"></label>
       <label class="field"><span class="field-top">Relief depth <output id="o-relief"></output></span>
         <input id="relief" type="range" min="0.3" max="2" step="0.05" value="1"></label>
+      <label class="field"><span class="field-top">Rotation <output id="o-rot"></output></span>
+        <input id="rot" type="range" min="0" max="180" step="1" value="0"></label>
       <label class="field"><span class="field-top">Pattern size <output id="o-psize"></output></span>
         <input id="psize" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
     </section>
@@ -245,7 +247,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     bark: (v) => '×' + (+v).toFixed(1), twig: (v) => (+v).toFixed(1) + ' mm', minbone: (v) => (+v).toFixed(1) + ' mm',
     scale: (v) => '≈1:' + Math.round(10 / v),
     bays: (v) => v + (v == 1 ? ' section' : ' sections') + ' · about ' + Math.round(v * 2.35) + ' m',
-    tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2),
+    tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2), rot: (v) => Math.round(v) + '°',
     rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
   };
   const paramIds = Object.keys(fmt);
@@ -255,7 +257,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     if (M[sel.value].baseTopper) {
       const b = $('baseSize').value, custom = b === 'custom';
       return { base: b, w: custom ? +$('cw').value : undefined, d: custom ? +$('cd').value : undefined,
-        tol: +$('tol').value, thick: +$('thick').value, relief: +$('relief').value, psize: +$('psize').value, quality };
+        tol: +$('tol').value, thick: +$('thick').value, relief: +$('relief').value, psize: +$('psize').value, rot: +$('rot').value, quality };
     }
     if (M[sel.value].rock) return { size: +$('rsize').value, rough: +$('rough').value, angular: +$('angular').value, quality };
     return isTree
