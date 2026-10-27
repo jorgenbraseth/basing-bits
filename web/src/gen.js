@@ -572,6 +572,89 @@ const GEN = (() => {
     return [[fnPrim(f, [-m, -m, -1], [m, m, H + 3], I3(), [0, 0, 0], 0.6)], 0];
   }
 
+  // ======================================================================
+  // Wooden fences (units: real cm). One custom SDF: posts, rails, pickets.
+  // ======================================================================
+  function fence(rng, o, style) {
+    const bays = Math.max(1, Math.min(6, Math.round(o.bays ?? 2)));
+    const broken = style === 'broken', picket = style === 'picket' || (broken && rng.random() < 0.4);
+    const L = rng.uniform(220, 250), total = bays * L, x0 = -total / 2;
+    const H = picket ? rng.uniform(95, 110) : rng.uniform(115, 130), pw = 12;
+    const posts = Array.from({ length: bays + 1 }, (_, i) => ({
+      x: x0 + i * L + rng.uniform(-4, 4),
+      h: H + rng.uniform(-6, 6) - (broken && rng.random() < 0.3 ? rng.uniform(15, 40) : 0),
+      lx: rng.normal(0, broken ? 0.08 : 0.025), ly: rng.normal(0, broken ? 0.1 : 0.025),
+    }));
+    const railZ = picket ? [rng.uniform(22, 28), H - rng.uniform(20, 26)] : [rng.uniform(28, 34), rng.uniform(62, 70), H - rng.uniform(16, 22)];
+    const railT = 6, railW = picket ? 10 : 12;
+    const rails = [], fallen = [];
+    for (let b = 0; b < bays; b++) for (const z of railZ) {
+      const pa = posts[b], pb = posts[b + 1];
+      const za = z + pa.lx * 0, zb = z;
+      const r = { xa: pa.x + pa.lx * z, xb: pb.x + pb.lx * z, ya: pa.ly * z, yb: pb.ly * z, za, zb, sag: rng.uniform(0.5, 2.5), cut: null };
+      if (broken && rng.random() < 0.45) {                         // snapped: keep a stub, drop the rest
+        const fromA = rng.random() < 0.5, keep = rng.uniform(0.15, 0.55);
+        r.cut = { fromA, at: fromA ? r.xa + (r.xb - r.xa) * keep : r.xb - (r.xb - r.xa) * keep, jag: rng.uniform(0, 100) };
+        if (rng.random() < 0.75) {
+          const len = (r.xb - r.xa) * (1 - keep) * rng.uniform(0.7, 1), cx = (fromA ? r.cut.at + len / 2 : r.cut.at - len / 2) + rng.uniform(-15, 15);
+          fallen.push({ cx, cy: rng.uniform(-35, 35), len, ang: rng.normal(0, 0.35) });
+        }
+      } else if (broken && rng.random() < 0.15) continue;           // missing rail
+      rails.push(r);
+    }
+    const ps = 14, pick = Math.floor(L / ps);
+    const pickets = picket ? Array.from({ length: bays * pick }, () => ({
+      gone: broken && rng.random() < 0.3, h: rng.uniform(-4, 4) - (broken && rng.random() < 0.25 ? rng.uniform(15, 50) : 0), tilt: rng.normal(0, broken ? 0.05 : 0.01),
+    })) : [];
+    const pickY = railT / 2 - 0.6, pickTop = H - 8;                // pickets overlap the rail face so they are one piece with it
+    const rbox = (x, y, z, hx, hy, hz, r) => sdBox(x, y, z, hx - r, hy - r, hz - r) - r;
+    const f = (x, y, z) => {
+      let d = 1e9, along = 2;                                       // along: 0 = x (rails), 2 = z (posts, pickets)
+      for (const p of posts) {                                     // leaning square posts with a worn, sloped top
+        const px = x - p.x - p.lx * z, py = y - p.ly * z;
+        let dp = rbox(px, py, z - (p.h - 10) / 2, pw / 2, pw / 2, (p.h + 10) / 2, 1.2);
+        dp = Math.max(dp, (z - p.h) + 0.25 * px);
+        if (dp < d) { d = dp; along = 2; }
+      }
+      for (const r of rails) {
+        const t = Math.min(1, Math.max(0, (x - r.xa) / (r.xb - r.xa)));
+        const ry = r.ya + (r.yb - r.ya) * t, rz = r.za - r.sag * Math.sin(Math.PI * t);
+        let dr = rbox(x - (r.xa + r.xb) / 2, y - ry, z - rz, Math.abs(r.xb - r.xa) / 2, railT / 2, railW / 2, 1);
+        if (r.cut) {                                                 // splintered break
+          const jag = 4 * (vnoise(y * 0.5 + r.cut.jag, z * 0.5, 1.7) - 0.5) + 3 * Math.sin(z * 1.3 + r.cut.jag);
+          dr = Math.max(dr, r.cut.fromA ? x - r.cut.at - jag : r.cut.at - x + jag);
+        }
+        if (dr < d) { d = dr; along = 0; }
+      }
+      for (const fr of fallen) {                                   // broken-off rail lying on the ground
+        const c = Math.cos(fr.ang), s2 = Math.sin(fr.ang), qx = (x - fr.cx) * c + (y - fr.cy) * s2, qy = -(x - fr.cx) * s2 + (y - fr.cy) * c;
+        const df = rbox(qx, qy, z - railT / 2 + 1, fr.len / 2, railW / 2, railT / 2, 1);
+        if (df < d) { d = df; along = 0; }
+      }
+      if (picket) {                                                // pointed pickets on the front of the rails
+        const sp = L / pick, bay0 = Math.min(bays - 1, Math.max(0, Math.floor((x - x0) / L)));
+        const kc = Math.round((x - x0 - bay0 * L) / sp);
+        for (let kd = -1; kd <= 1; kd++) {
+          const k = bay0 * pick + kc + kd;
+          if (kc + kd < 0 || kc + kd >= pick || k < 0 || k >= pickets.length) continue;
+          const bay = bay0, kk = kc + kd;
+          if (kk === 0) continue;                                    // leave the post position free
+          const q = pickets[k]; if (q.gone) continue;
+          const cx = x0 + bay * L + kk * (L / pick), top = pickTop + q.h;
+          const qx = x - cx - q.tilt * z;
+          let dk = rbox(qx, y - pickY - 2, z - (top + 4) / 2 - 2, 4, 2, (top - 4) / 2 + 2, 0.6);
+          dk = Math.max(dk, z - top - 9 + Math.abs(qx) * 1.6);       // pointed tip
+          dk = Math.max(dk, 4 - z);                                  // pickets stop just above the ground
+          if (dk < d) { d = dk; along = 2; }
+        }
+      }
+      if (d < 2) d += 0.28 * (along === 0 ? vnoise(x * 0.12, y * 0.9, z * 0.9) - 0.5 : vnoise(x * 0.9, y * 0.9, z * 0.12) - 0.5);   // grain
+      return d;
+    };
+    const m = 60;
+    return [[fnPrim(f, [x0 - 30, -m, -10], [-x0 + 30, m, H + 15], I3(), [0, 0, 0], 0.6)], 10];
+  }
+
   const MODELS = {
     tree:           { group: 'Trees', label: 'Dead tree', kind: 'tree' },
     skull_longhorn: { group: 'Skulls', label: 'Longhorn steer skull', fn: (r) => bovineSkull(r, 'longhorn') },
@@ -591,6 +674,9 @@ const GEN = (() => {
     crate:          { group: 'Props', label: 'Wooden crate', fn: (r) => crate(r, 'closed'), smooth: 2, wood: true },
     crate_broken:   { group: 'Props', label: 'Smashed crate', fn: (r) => crate(r, 'broken'), smooth: 2, wood: true },
     crate_stack:    { group: 'Props', label: 'Stacked crates', fn: (r) => crate(r, 'stack'), smooth: 2, wood: true },
+    fence_rail:     { group: 'Props', label: 'Post-and-rail fence', fn: (r, o) => fence(r, o, 'rail'), smooth: 2, wood: true, fence: true },
+    fence_picket:   { group: 'Props', label: 'Picket fence', fn: (r, o) => fence(r, o, 'picket'), smooth: 2, wood: true, fence: true },
+    fence_broken:   { group: 'Props', label: 'Broken fence', fn: (r, o) => fence(r, o, 'broken'), smooth: 2, wood: true, fence: true },
     rock_boulder:   { group: 'Rocks', label: 'Boulder', fn: rockBoulder, rock: true },
     rock_cluster:   { group: 'Rocks', label: 'Rock cluster', fn: rockCluster, rock: true },
     rock_scree:     { group: 'Rocks', label: 'Scree (loose stones)', fn: rockScree, rock: true, keepAll: true },

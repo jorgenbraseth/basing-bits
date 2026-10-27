@@ -86,7 +86,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <aside class="rail">
     <header class="brand">
       <h1>Basing bits</h1>
-      <p>Dead trees, skulls, ribcages, barrels, crates and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
+      <p>Dead trees, skulls, ribcages, barrels, crates, fences and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
     </header>
 
     <section class="group" aria-labelledby="h-model">
@@ -137,6 +137,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       <label class="field"><span class="field-top">Model scale <output id="o-scale"></output></span>
         <input id="scale" type="range" min="0.15" max="0.4" step="0.01" value="0.25"></label>
       <p class="hint" id="scaleHint">1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.</p>
+      <label class="field" id="baysField" hidden><span class="field-top">Bays <output id="o-bays"></output></span>
+        <input id="bays" type="range" min="1" max="5" step="1" value="2"></label>
       <label class="field" id="minboneField"><span class="field-top">Thinnest bone <output id="o-minbone"></output></span>
         <input id="minbone" type="range" min="0.5" max="1.6" step="0.1" value="0.8"></label>
     </section>
@@ -221,6 +223,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     height: (v) => '×' + (+v).toFixed(2), gnarl: (v) => '×' + (+v).toFixed(2), thickness: (v) => '×' + (+v).toFixed(2),
     bark: (v) => '×' + (+v).toFixed(1), twig: (v) => (+v).toFixed(1) + ' mm', minbone: (v) => (+v).toFixed(1) + ' mm',
     scale: (v) => '≈1:' + Math.round(10 / v),
+    bays: (v) => v + (v == 1 ? ' section' : ' sections') + ' · about ' + Math.round(v * 2.35) + ' m',
     rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
   };
   const paramIds = Object.keys(fmt);
@@ -230,9 +233,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     if (M[sel.value].rock) return { size: +$('rsize').value, rough: +$('rough').value, angular: +$('angular').value, quality };
     return isTree
       ? { height: +$('height').value, gnarl: +$('gnarl').value, thickness: +$('thickness').value, bark: +$('bark').value, minThick: +$('twig').value, quality }
-      : { scale: +$('scale').value, minThick: +$('minbone').value, quality };
+      : { scale: +$('scale').value, minThick: +$('minbone').value, bays: +$('bays').value, quality };
   }
-  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('boneParams').hidden = t || r; }
+  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('boneParams').hidden = t || r; $('baysField').hidden = !M[sel.value].fence; }
 
   // ---------- generation (web worker, main-thread fallback) ----------
   let worker = null, reqId = 0;

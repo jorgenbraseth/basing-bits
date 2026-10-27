@@ -1,6 +1,6 @@
 # basing-bits
 
-Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates and rocks. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
+Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates, fences and rocks. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
 
 ## The web generator
 
@@ -14,7 +14,7 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 | Trees | Dead tree (height, gnarl, trunk thickness, bark depth, thinnest twig) |
 | Skulls | Longhorn steer, bull, cow with broken horn, ram, horse, wolf, giant beast |
 | Ribcages | Cattle (on its back), horse (on its side), goat, giant beast |
-| Props | Barrel, barrel on its side, broken barrel, crate, smashed crate, stacked crates |
+| Props | Barrel, barrel on its side, broken barrel, crate, smashed crate, stacked crates, post-and-rail fence, picket fence, broken fence (fences: 1–5 bays, each about 2.3 m) |
 | Rocks | Boulder, rock cluster, scree (loose stones), layered sandstone outcrop, hoodoo (rock pillar with cap); size, roughness, angularity |
 
 ### Scale
