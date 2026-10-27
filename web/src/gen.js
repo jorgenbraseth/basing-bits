@@ -846,6 +846,45 @@ const GEN = (() => {
         return R * h;
       };
     }
+    if (type === 'tiles') {                                         // square floor tiles: grout, a few cracked, chipped or missing
+      const T = rng.uniform(4.2, 5.4) * S, g = 0.13, ta = rng.choice([0, Math.PI / 4]) + rng.normal(0, 0.03);
+      const tc = Math.cos(ta), ts = Math.sin(ta);
+      return (x, y) => {
+        const u = x * tc + y * ts, v = -x * ts + y * tc;
+        const iu = Math.floor(u / T), iv = Math.floor(v / T), fu = u - iu * T, fv = v - iv * T;
+        const id = hash3(iu, iv, seed), edge = Math.min(fu, T - fu, fv, T - fv);
+        if (id < 0.04) return R * (0.1 + 0.08 * fbm(x * 1.2, y * 1.2, seed + 5, 2));   // missing tile: rough bed
+        let h = 0.42 + 0.05 * (hash3(iu, iv, seed + 1) - 0.5);
+        if (id < 0.13) {                                              // cracked straight across, one half sunk a little
+          const ca = hash3(iu, iv, seed + 2) * Math.PI, nx = Math.cos(ca), ny = Math.sin(ca);
+          const side = (fu - T / 2) * nx + (fv - T / 2) * ny + 0.4 * (vnoise(fu * 2, fv * 2, seed) - 0.5);
+          h -= 0.28 * (1 - sstep(Math.abs(side) / 0.1)) + (side > 0 ? 0.05 : 0);
+        } else if (id < 0.24) {                                       // chipped corner
+          const cu = hash3(iu, iv, seed + 3) < 0.5 ? 0 : T, cv = hash3(iu, iv, seed + 4) < 0.5 ? 0 : T;
+          const cr = Math.hypot(fu - cu, fv - cv) + 0.25 * (vnoise(fu * 3, fv * 3, seed + 6) - 0.5);
+          if (cr < 1.1 * S) h = Math.min(h, 0.18 + 0.2 * sstep((cr - 0.7 * S) / (0.4 * S)));
+        }
+        h += 0.02 * (vnoise(x * 3, y * 3, seed + 8) - 0.5);
+        return R * (0.1 + h * sstep((edge - g) / 0.1));
+      };
+    }
+    if (type === 'gravel') {                                        // dirt with patches of mixed gravel and a few bigger stones
+      return (x, y) => {
+        let h = 0.28 + 0.16 * (fbm(x * 0.3, y * 0.3, seed, 3) - 0.5) * 2 + 0.04 * (vnoise(x * 3, y * 3, seed + 1) - 0.5);
+        const patch = fbm(x * 0.12 + 50, y * 0.12, seed + 2, 2);      // where the gravel gathers
+        for (const [cell, dens, rr, hh, sd] of [[0.85 * S, 0.25 + 0.7 * patch, 0.42, 0.32, 3], [1.6 * S, 0.1 + 0.4 * patch, 0.4, 0.45, 4], [3.2 * S, 0.12, 0.38, 0.7, 5]]) {
+          const w = worley(x / cell, y / cell, seed + sd, 0.9);
+          if (w.id >= dens) continue;
+          const r = rr * (0.7 + 0.6 * hash3(Math.floor(w.cx * 31), Math.floor(w.cy * 37), seed + sd));
+          if (w.f1 < r) {
+            const dome = Math.sqrt(1 - (w.f1 / r) ** 2);
+            const facet = 0.85 + 0.15 * (vnoise(x * 5 / cell, y * 5 / cell, seed + sd) - 0.5) * 2;   // slightly angular tops
+            h = Math.max(h, 0.15 + hh * Math.min(dome * 1.3, 1) * facet * (cell / (0.85 * S)) ** 0.35);
+          }
+        }
+        return R * h;
+      };
+    }
     // 'deck': industrial plate panels with tread pattern and rivets
     const P = rng.uniform(10, 14) * S, sp = 1.5 * S;
     return (x, y) => {
@@ -932,6 +971,8 @@ const GEN = (() => {
     base_cracked:   { group: 'Bases', label: 'Cracked earth', ground: 'cracked', baseTopper: true },
     base_sand:      { group: 'Bases', label: 'Sand and pebbles', ground: 'sand', baseTopper: true },
     base_deck:      { group: 'Bases', label: 'Industrial deck plate', ground: 'deck', baseTopper: true },
+    base_tiles:     { group: 'Bases', label: 'Floor tiles', ground: 'tiles', baseTopper: true },
+    base_gravel:    { group: 'Bases', label: 'Gravel and dirt', ground: 'gravel', baseTopper: true },
     rock_boulder:   { group: 'Rocks', label: 'Boulder', fn: rockBoulder, rock: true },
     rock_cluster:   { group: 'Rocks', label: 'Rock cluster', fn: rockCluster, rock: true },
     rock_scree:     { group: 'Rocks', label: 'Scree (loose stones)', fn: rockScree, rock: true, keepAll: true },

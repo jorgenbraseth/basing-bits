@@ -16,7 +16,7 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 | Ribcages | Cattle (on its back), horse (on its side), goat, giant beast |
 | Props | Barrel, barrel on its side, broken barrel, crate, smashed crate, stacked crates, post-and-rail fence, picket fence, broken fence (fences: 1–5 bays, each about 2.3 m), shipping containers: 20 ft, 40 ft, opened, wrecked and half buried |
 | Rocks | Boulder, rock cluster, scree (loose stones), layered sandstone outcrop, hoodoo (rock pillar with cap); size, roughness, angularity |
-| Bases | Textured toppers cut to the top surface of a base: cobblestones, wooden planks, flagstones, cracked earth, sand and pebbles, industrial deck plate |
+| Bases | Textured toppers cut to the top surface of a base: cobblestones, wooden planks, flagstones, cracked earth, sand and pebbles, industrial deck plate, floor tiles, gravel and dirt |
 
 ### Scale
 
