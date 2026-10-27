@@ -25,7 +25,7 @@ The thinnest twig or bone has a minimum thickness (default 1.1 mm for trees, 0.8
 
 ### How it works
 
-Each piece is a set of primitives (tapered capsules, ellipsoids, and custom distance functions for the barrels and crates), combined into one signed distance field with smooth blends and subtractions. Bark is 3D noise stretched along each branch's direction, so it has no UV seams or poles. Rocks are ellipsoids cut by random planes (fracture faces), with fractal erosion, hairline cracks and, for sandstone, ledges per layer. The field is meshed with surface nets, smoothed with Taubin smoothing (which doesn't shrink the piece, and keeps the ground cut flat), and cleaned of sealed internal voids and loose bits.
+Each piece is a set of primitives (tapered capsules, ellipsoids, and custom distance functions for the barrels and crates), combined into one signed distance field with smooth blends and subtractions. Bark is 3D noise stretched along each branch's direction, so it has no UV seams or poles. Rocks are ellipsoids cut by random planes (fracture faces), with fractal erosion and, for sandstone, ledges per layer. The field is meshed with surface nets, smoothed with Taubin smoothing (which doesn't shrink the piece, and keeps the ground cut flat), and cleaned of sealed internal voids and loose bits.
 
 The mesh is closed and outward-facing. A handful of edges per piece can be shared by four triangles (pinch points); PrusaSlicer, Chitubox, Lychee and Cura repair these automatically.
 

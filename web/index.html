@@ -672,7 +672,7 @@ const GEN = (() => {
     const PN = new Float64Array(planes.length * 4);
     planes.forEach((p, i) => { PN[i * 4] = p.n[0]; PN[i * 4 + 1] = p.n[1]; PN[i * 4 + 2] = p.n[2]; PN[i * 4 + 3] = p.o; });
     const wear = R * (0.025 + 0.12 * (1 - angular)), amp = R * 0.07 * rough, freq = 1.4 / R, seed = rng.uniform(0, 100);
-    const cracks = Array.from({ length: rng.int(1, 4) }, () => { const n = randomUnit(rng); return { n, o: rng.uniform(-0.5, 0.5) * R }; });
+    for (let i = rng.int(1, 4); i > 0; i--) { randomUnit(rng); rng.uniform(-0.5, 0.5); }   // former crack lines: draws kept so seeds give the same rocks
     const layerH = R * rng.uniform(0.18, 0.28), insets = Array.from({ length: 64 }, () => rng.uniform(0, 1));
     const f = (x, y, z) => {
       const k0 = Math.hypot(x / r[0], y / r[1], z / r[2]), k1 = Math.hypot(x / (r[0] * r[0]), y / (r[1] * r[1]), z / (r[2] * r[2]));
@@ -685,10 +685,6 @@ const GEN = (() => {
       if (flatTop !== null) d = smax(d, z - flatTop, wear);
       d += amp * (fbm(x * freq + seed, y * freq, z * freq, 3) - 0.5) * 1.6;
       d += R * 0.018 * rough * (vnoise(x * freq * 9, y * freq * 9, z * freq * 9) - 0.5);   // fine grit
-      for (const c of cracks) {                                     // hairline cracks
-        const t = Math.abs(c.n[0] * x + c.n[1] * y + c.n[2] * z - c.o);
-        if (t < 0.35) d += 0.3 * sstep(1 - t / 0.35);
-      }
       if (strata) {                                                  // ledges: each layer erodes back by its own amount
         const t = (z + z0) / layerH, i = Math.floor(t), fr = t - i;
         const a = insets[((i % 64) + 64) % 64], b = insets[(((i + 1) % 64) + 64) % 64];
