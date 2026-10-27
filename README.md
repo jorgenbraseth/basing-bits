@@ -20,7 +20,7 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 
 ### Composing a scene
 
-**Add piece to scene** bakes the current piece into a scene; switch tabs, generate the next piece and add that too, for example a base topper and then rocks, a skull or a barrel on it. Click a piece in the viewport to select it and drag it to move it (drag empty space to rotate the view). The selected piece has X, Y, height and rotation fields, plus Duplicate and Remove; arrow keys nudge it 1 mm (Shift: 5 mm), Q and E rotate it 15°, Delete removes it.
+**Add piece to scene** bakes the current piece into a scene; switch tabs, generate the next piece and add that too, for example a base topper and then rocks, a skull or a barrel on it. Click a piece in the viewport to select it and drag it to move it (drag empty space to rotate the view). The selected piece gets a transform gizmo: in **Move** mode drag the arrows to slide it along X, Y or Z, in **Rotate** mode drag the rings to turn it around each axis, and **Snap** limits this to 1 mm and 15° steps. It also has X, Y, height, rotation and X/Y tilt fields, plus Duplicate and Remove. Keys: M move, R rotate, arrows nudge 1 mm (Shift: 5 mm), Q and E turn 15°, Delete removes. Moving with the gizmo never drops the piece, so you can lift it on purpose.
 
 With **Drop pieces onto the surface below** on, a piece you move settles onto whatever is under its centre and sinks in by the **Sink into surface** amount (0.4 mm by default), so the parts fuse when printed. **Download scene STL** writes every piece, in place, into one STL. Overlapping parts are simply stacked meshes; slicers merge them when they print.
 

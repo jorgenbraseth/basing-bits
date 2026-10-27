@@ -219,13 +219,20 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
           <label for="py">Y (mm)<input id="py" type="number" step="0.5"></label>
           <label for="pz">Height (mm)<input id="pz" type="number" step="0.1"></label>
           <label for="pr">Rotation (°)<input id="pr" type="number" step="5"></label>
+          <label for="rx">Tilt X (°)<input id="rx" type="number" step="5"></label>
+          <label for="ry">Tilt Y (°)<input id="ry" type="number" step="5"></label>
         </div>
+        <div class="seg" id="gizmoMode" role="group" aria-label="Gizmo" style="grid-template-columns: repeat(2, 1fr)">
+          <button type="button" data-gm="translate" aria-pressed="true">Move</button>
+          <button type="button" data-gm="rotate" aria-pressed="false">Rotate</button>
+        </div>
+        <label class="check"><input id="snap" type="checkbox"> Snap to 1 mm and 15°</label>
         <div class="row">
           <button class="btn" id="dropSel" type="button" style="flex:1">Drop onto surface</button>
           <button class="btn" id="dupSel" type="button">Duplicate</button>
           <button class="btn" id="delSel" type="button">Remove</button>
         </div>
-        <p class="hint">Arrow keys move 1 mm (Shift: 5 mm), Q and E rotate 15°, Delete removes.</p>
+        <p class="hint">Drag the arrows to move along an axis, or switch to Rotate and drag the rings. Keys: M move, R rotate, arrows nudge 1 mm (Shift: 5 mm), Q and E turn 15°, Delete removes.</p>
       </div>
       <label class="check"><input id="autoDrop" type="checkbox" checked> Drop pieces onto the surface below when moved</label>
       <label class="field"><span class="field-top">Sink into surface <output id="o-sink"></output></span>
@@ -251,6 +258,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 <script id="gen">
 // ============================================================================
 // Procedural terrain bits for 28mm: dead trees, skulls, ribcages.
@@ -1728,6 +1736,26 @@ if (typeof module !== 'undefined') module.exports = GEN;
 
   // ---------- scene: baked pieces that can be moved and exported together ----------
   const items = []; let selected = null, nextId = 1;
+  // transform gizmo: arrows along X/Y/Z, rings around each axis
+  const tc = THREE.TransformControls ? new THREE.TransformControls(camera, canvas) : null;
+  let gizmoUsed = false;
+  if (tc) {
+    tc.setSize(0.85); tc.setSpace('world');
+    tc.addEventListener('change', () => { needs = true; });
+    tc.addEventListener('objectChange', () => { if (selected && selected.group.position.z < 0) selected.group.position.z = 0; updateFields(); });
+    tc.addEventListener('dragging-changed', (e) => { if (e.value) gizmoUsed = true; });
+    scene.add(tc);
+  }
+  function updateFields() {
+    if (!selected) return; const g = selected.group, deg = THREE.MathUtils.radToDeg;
+    $('px').value = g.position.x.toFixed(1); $('py').value = g.position.y.toFixed(1); $('pz').value = g.position.z.toFixed(2);
+    $('pr').value = Math.round(deg(g.rotation.z)); $('rx').value = Math.round(deg(g.rotation.x)); $('ry').value = Math.round(deg(g.rotation.y));
+  }
+  function setGizmoMode(mode) {
+    if (tc) tc.setMode(mode);
+    document.querySelectorAll('#gizmoMode button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.gm === mode)));
+    needs = true;
+  }
   const raycaster = new THREE.Raycaster();
   const ndc = (e) => { const r = canvas.getBoundingClientRect(); return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); };
   function pickItem(e) {
@@ -1751,6 +1779,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   function selectItem(it) {
     selected = it;
     for (const o of items) o.mesh.material.emissive.setHex(o === it ? 0x3a2c10 : 0x000000);
+    if (tc) { if (it) tc.attach(it.group); else tc.detach(); }
     renderSceneUI(); needs = true;
   }
   function renderSceneUI() {
@@ -1767,11 +1796,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     $('selPanel').hidden = !selected;
     $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length;
     $('tip').textContent = items.length ? 'Click a piece to select it, drag it to move · drag empty space to rotate the view' : 'Drag to rotate · scroll or pinch to zoom';
-    if (selected) {
-      const g = selected.group;
-      $('px').value = g.position.x.toFixed(1); $('py').value = g.position.y.toFixed(1);
-      $('pz').value = g.position.z.toFixed(2); $('pr').value = Math.round(THREE.MathUtils.radToDeg(g.rotation.z));
-    }
+    updateFields();
     if (mesh) mesh.material = liveMaterial();
   }
   function addItem(src) {                                         // src: { name, model, positions, indices, material, ghostGeo, x, y, rot }
@@ -1780,7 +1805,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     geo.setIndex(new THREE.BufferAttribute(src.indices, 1)); geo.computeVertexNormals(); geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, src.material.clone()), group = new THREE.Group(); group.add(m);
     if (src.ghostGeo) group.add(new THREE.Mesh(src.ghostGeo.clone(), ghostMat));
-    group.position.set(src.x || 0, src.y || 0, 0); group.rotation.z = src.rot || 0;
+    group.position.set(src.x || 0, src.y || 0, 0); group.rotation.set(src.rx || 0, src.ry || 0, src.rot || 0);
     scene.add(group);
     const it = { id: nextId++, name: src.name, model: src.model, positions: src.positions, indices: src.indices, material: src.material, ghostGeo: src.ghostGeo, group, mesh: m };
     items.push(it);
@@ -1796,7 +1821,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   }
   function removeItem(it) {
     scene.remove(it.group); it.mesh.geometry.dispose(); it.mesh.material.dispose();
-    items.splice(items.indexOf(it), 1); if (selected === it) selected = null;
+    items.splice(items.indexOf(it), 1); if (selected === it) { selected = null; if (tc) tc.detach(); }
     renderSceneUI(); needs = true;
   }
   function sceneSTL() {
@@ -1841,7 +1866,10 @@ if (typeof module !== 'undefined') module.exports = GEN;
   // pointer orbit + zoom (mouse, touch, pinch)
   const pts = new Map(); let pinch0 = 0, dist0 = 0, drag = null, downAt = null;
   const planeHit = (e, z) => { raycaster.setFromCamera(ndc(e), camera); const p = new THREE.Vector3(); return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z), p) ? p : null; };
-  canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+  canvas.addEventListener('pointerdown', (e) => {
+    gizmoUsed = false;
+    if (tc && (tc.dragging || tc.axis)) { downAt = null; return; }      // the gizmo handles this drag
+    canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
     downAt = [e.clientX, e.clientY];
     if (pts.size === 1 && e.button === 0) {
       const hit = pickItem(e);
@@ -1853,7 +1881,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     }
     if (pts.size === 2) { drag = null; const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
   canvas.addEventListener('pointermove', (e) => {
-    if (!pts.has(e.pointerId)) return;
+    if (!pts.has(e.pointerId) || (tc && tc.dragging)) return;
     const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (drag && pts.size === 1) {
       const p = planeHit(e, drag.z);
@@ -1872,7 +1900,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   const up = (e) => {
     pts.delete(e.pointerId); pinch0 = 0;
     if (drag) { if (drag.moved && $('autoDrop').checked) dropItem(drag.item); drag = null; renderSceneUI(); needs = true; }
-    else if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 4 && selected && e.type === 'pointerup' && !pickItem(e)) selectItem(null);   // click on empty space deselects
+    else if (!gizmoUsed && downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 4 && selected && e.type === 'pointerup' && !pickItem(e)) selectItem(null);   // click on empty space deselects
     downAt = null;
   };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
@@ -1959,15 +1987,23 @@ if (typeof module !== 'undefined') module.exports = GEN;
   });
   const setFromFields = () => {
     if (!selected) return; const g = selected.group;
-    g.position.set(+$('px').value || 0, +$('py').value || 0, Math.max(0, +$('pz').value || 0)); g.rotation.z = THREE.MathUtils.degToRad(+$('pr').value || 0);
+    const rad = THREE.MathUtils.degToRad;
+    g.position.set(+$('px').value || 0, +$('py').value || 0, Math.max(0, +$('pz').value || 0));
+    g.rotation.set(rad(+$('rx').value || 0), rad(+$('ry').value || 0), rad(+$('pr').value || 0));
     needs = true;
   };
-  for (const id of ['px', 'py', 'pz', 'pr']) $(id).addEventListener('change', setFromFields);
+  for (const id of ['px', 'py', 'pz', 'pr', 'rx', 'ry']) $(id).addEventListener('change', setFromFields);
+  document.querySelectorAll('#gizmoMode button').forEach((b) => b.addEventListener('click', () => setGizmoMode(b.dataset.gm)));
+  $('snap').addEventListener('change', () => {
+    if (!tc) return; const on = $('snap').checked;
+    tc.setTranslationSnap(on ? 1 : null); tc.setRotationSnap(on ? THREE.MathUtils.degToRad(15) : null);
+  });
+  if (!tc) $('gizmoMode').hidden = true;
   $('dropSel').addEventListener('click', () => { if (selected) { dropItem(selected); renderSceneUI(); needs = true; } });
   $('delSel').addEventListener('click', () => { if (selected) removeItem(selected); });
   $('dupSel').addEventListener('click', () => {
     if (!selected) return; const s = selected, g = s.group;
-    addItem({ name: s.name, model: s.model, positions: s.positions, indices: s.indices, material: s.material, ghostGeo: s.ghostGeo, x: g.position.x + 8, y: g.position.y + 4, rot: g.rotation.z });
+    addItem({ name: s.name, model: s.model, positions: s.positions, indices: s.indices, material: s.material, ghostGeo: s.ghostGeo, x: g.position.x + 8, y: g.position.y + 4, z: $('autoDrop').checked ? null : g.position.z, rot: g.rotation.z, rx: g.rotation.x, ry: g.rotation.y });
   });
   let clearArmed = null;
   $('clearScene').addEventListener('click', () => {
@@ -1988,6 +2024,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     if (e.key === 'ArrowLeft') g.position.x -= step; else if (e.key === 'ArrowRight') g.position.x += step;
     else if (e.key === 'ArrowUp') g.position.y += step; else if (e.key === 'ArrowDown') g.position.y -= step;
     else if (e.key === 'q' || e.key === 'Q') g.rotation.z += Math.PI / 12; else if (e.key === 'e' || e.key === 'E') g.rotation.z -= Math.PI / 12;
+    else if (e.key === 'm' || e.key === 'M') { setGizmoMode('translate'); return; } else if (e.key === 'r' || e.key === 'R') { setGizmoMode('rotate'); return; }
     else if (e.key === 'Delete' || e.key === 'Backspace') { removeItem(selected); e.preventDefault(); return; }
     else return;
     e.preventDefault(); if (e.key.startsWith('Arrow') && $('autoDrop').checked) dropItem(selected);
