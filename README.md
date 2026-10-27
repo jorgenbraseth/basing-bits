@@ -6,7 +6,7 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 
 `web/index.html` is a single self-contained page. All generation runs in the browser with no server: pick a piece, change the seed or sliders, preview it in 3D next to a 28mm figure on a 25 mm base, and download the STL.
 
-- **Run it:** open `web/index.html` in a browser, use the GitHub Pages site (see below), or host `web/index.html` anywhere static.
+- **Run it:** use the site at https://jorgenbraseth.github.io/basing-bits/, open `web/index.html` straight from disk, or host it anywhere static.
 - **Download:** a single piece saves as `.stl`; "Download variants" builds 2–20 consecutive seeds into one `.zip`. File names include the model and seed, so you can always regenerate the same piece.
 
 | Tab | Pieces |
@@ -47,9 +47,9 @@ node test/check.js        # optional: build all models (STLs land in test/out/)
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml` rebuilds `index.html`, runs the smoke test, and publishes the page on every push to `main` that touches `web/` (or by hand from the Actions tab). To switch it on once: **Settings → Pages → Build and deployment → Source: GitHub Actions**, then re-run the workflow. The site appears at `https://jorgenbraseth.github.io/basing-bits/`.
+The site is served straight from the `main` branch: **https://jorgenbraseth.github.io/basing-bits/** (the root page forwards to `web/`). Because Pages serves the files as committed, always run `python3 web/build.py` and commit `web/index.html` after changing anything in `web/src/`.
 
-Pages for a private repository needs a paid GitHub plan (Pro, Team or Enterprise). On a free account, make the repository public first.
+`.github/workflows/pages.yml` checks this on every push and pull request: it fails if `web/index.html` is out of date with `web/src/`, and builds every model once as a smoke test.
 
 `page.html` is also the exact source of the claude.ai artifact version. There it saves through the platform's download capability, which allows `.zip` but not `.stl`. Opened anywhere else, it uses ordinary browser downloads.
 
