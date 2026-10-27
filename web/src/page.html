@@ -86,7 +86,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <aside class="rail">
     <header class="brand">
       <h1>Basing bits</h1>
-      <p>Dead trees, skulls, ribcages, barrels, crates, fences and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
+      <p>Dead trees, skulls, ribcages, barrels, crates, fences, shipping containers and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
     </header>
 
     <section class="group" aria-labelledby="h-model">
@@ -198,7 +198,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   const scaleHints = {
     Skulls: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
     Ribcages: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
-    Props: 'At 1:50 a barrel stands about 18 mm tall, roughly hip height on a 28mm figure. Plank seams and lid boards are about 0.2 mm deep, so resin shows them best.',
+    Props: 'At 1:50 a barrel stands about 18 mm tall, roughly hip height on a 28mm figure. Plank seams and lid boards are about 0.2 mm deep, so resin shows them best. A 20 ft container is about 12 cm long.',
   };
   let curCat = 'Trees';
   function fillModels(cat) {
@@ -290,6 +290,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   const barkMat = new THREE.MeshStandardMaterial({ color: 0x6e5a47, roughness: 0.95, metalness: 0 });
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a55, roughness: 0.9, metalness: 0 });
   const rockMat = new THREE.MeshStandardMaterial({ color: 0xa8957d, roughness: 1, metalness: 0 });
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0x9a5444, roughness: 0.7, metalness: 0.15 });
   let mesh = null, last = null;
 
   const orbit = { theta: -0.9, phi: 1.15, dist: 120, target: new THREE.Vector3(0, 0, 10) };
@@ -364,7 +365,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       g.setIndex(new THREE.BufferAttribute(r.indices, 1));
       g.computeVertexNormals();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
-      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
+      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
       scene.add(mesh);
       const firstOfModel = !last || last.model !== model;
       last = { model, seed, prm, positions: r.positions, indices: r.indices };

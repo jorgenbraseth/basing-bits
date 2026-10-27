@@ -94,7 +94,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <aside class="rail">
     <header class="brand">
       <h1>Basing bits</h1>
-      <p>Dead trees, skulls, ribcages, barrels, crates, fences and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
+      <p>Dead trees, skulls, ribcages, barrels, crates, fences, shipping containers and rocks for 28mm bases. Everything is generated in your browser and exported as printable STL.</p>
     </header>
 
     <section class="group" aria-labelledby="h-model">
@@ -512,7 +512,8 @@ const GEN = (() => {
   const sstep = (v) => { v = clamp01(v); return v * v * (3 - 2 * v); };
   const sdBox = (x, y, z, hx, hy, hz) => {
     const qx = Math.abs(x) - hx, qy = Math.abs(y) - hy, qz = Math.abs(z) - hz;
-    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qy, qz), 0);
+    const mx = qx > 0 ? qx : 0, my = qy > 0 ? qy : 0, mz = qz > 0 ? qz : 0, mi = qx > qy ? (qx > qz ? qx : qz) : (qy > qz ? qy : qz);
+    return Math.sqrt(mx * mx + my * my + mz * mz) + (mi < 0 ? mi : 0);
   };
   const I3 = () => [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
   const fnPrim = (f, llo, lhi, R = I3(), c = [0, 0, 0], k = 0.6) => ({ t: 'fn', f, llo, lhi, R, c, op: 'add', k });
@@ -849,6 +850,89 @@ const GEN = (() => {
     return [[fnPrim(f, [x0 - 30, -m, -10], [-x0 + 30, m, H + 15], I3(), [0, 0, 0], 0.6)], 10];
   }
 
+  // ======================================================================
+  // Shipping containers (units: real cm, ISO 20 ft / 40 ft)
+  // ======================================================================
+  function containerShape(rng, { L, mode }) {
+    const W = 244, H = 259, hx = L / 2, hy = W / 2, open = mode === 'open', wreck = mode === 'wreck', hollow = open || wreck;
+    const post = 17, rail = 15, topRail = 12, inset = 3, cd = 3.6, pitch = 27.8, wall = 5;
+    const corr = (u) => {                                            // trapezoid corrugation profile, 0..cd
+      const t = u / pitch - Math.floor(u / pitch);
+      return cd * (t < 0.3 ? 0 : t < 0.45 ? (t - 0.3) / 0.15 : t < 0.8 ? 1 : t < 0.95 ? (0.95 - t) / 0.15 : 0);
+    };
+    const dents = Array.from({ length: wreck ? rng.int(5, 9) : rng.int(0, 3) }, () => ({
+      x: rng.uniform(-hx + 40, hx - 40), side: rng.choice([-1, 1]), z: rng.uniform(40, H - 30), r: rng.uniform(25, wreck ? 70 : 40), d: rng.uniform(2, wreck ? 9 : 4) }));
+    const roofDent = wreck ? { x: rng.uniform(-hx * 0.6, hx * 0.6), r: rng.uniform(60, 110), d: rng.uniform(6, 14) } : null;
+    const holes = wreck ? Array.from({ length: rng.int(2, 4) }, () => ({
+      x: rng.uniform(-hx + 50, hx - 50), side: rng.choice([-1, 1]), z: rng.uniform(70, H - 60), rx: rng.uniform(18, 40), rz: rng.uniform(15, 35), sd: rng.uniform(0, 100) })) : [];
+    // doors at +x: hinged at the corner posts; open variant swings them out
+    const doorW = hy - post / 2, doorT = 6;
+    const angs = open ? [rng.uniform(95, 175), rng.random() < 0.6 ? rng.uniform(20, 120) : 0] : wreck && rng.random() < 0.5 ? [rng.uniform(15, 60), 0] : [0, 0];
+    const doors = [-1, 1].map((s, i) => ({ s, a: angs[i] * Math.PI / 180, hxp: hx - inset - doorT / 2, hyp: s * (hy - post / 2) }));
+    const ix0 = -hx + wall + inset, ix1 = hollow ? hx + 30 : hx - inset - doorT, iz0 = rail, iz1 = H - wall - inset;
+    const door = (x, y, z, dr) => {                                 // one door leaf with corrugation and two locking bars
+      const px = x - dr.hxp, py = y - dr.hyp, c = Math.cos(dr.a), sn = Math.sin(dr.a);
+      const u = px * c + dr.s * py * sn;                             // out of the door face (swings out toward +x)
+      const vv = px * sn - dr.s * py * c;                            // along the leaf: 0 at the hinge, doorW at the centre gap
+      let d = sdBox(u, vv - doorW / 2 - 0.5, z - H / 2, doorT / 2, doorW / 2 - 0.5, H / 2 - rail / 2 - 1);
+      d = Math.max(d, -Math.max(u - doorT / 2 + corr(vv * 1.4) * 0.5, -(u - doorT / 2 - 1)));   // shallow vertical ribs
+      for (const bv of [doorW * 0.3, doorW * 0.72]) {
+        d = Math.min(d, Math.hypot(u - doorT / 2 - 4, vv - bv) - 2.4 + Math.max(0, Math.abs(z - H / 2) - (H / 2 - 18)));   // locking bar
+        d = Math.min(d, sdBox(u - doorT / 2 - 3, vv - bv - 7, z - H * 0.42, 2, 8, 2.5));   // handle
+        for (const zb of [24, H - 24]) d = Math.min(d, sdBox(u - doorT / 2 - 2.5, vv - bv, z - zb, 3, 4.5, 3));   // bar guides
+      }
+      return d;
+    };
+    const f = (x, y, z) => {
+      const zc = z - H / 2;
+      let d0 = sdBox(x, y, zc, hx + 1, hy + 1, H / 2);
+      if (hollow) d0 = Math.max(d0, -sdBox(x - (ix0 + ix1) / 2, y, z - (iz0 + iz1) / 2, (ix1 - ix0) / 2 - 8, hy - inset - cd - wall - 8, (iz1 - iz0) / 2 - 8));
+      const nearDoors = x > hx - doorW - 25 && Math.abs(y) < hy + doorW + 20;   // doors only exist near the +x end
+      let dd = nearDoors ? Math.min(door(x, y, z, doors[0]), door(x, y, z, doors[1])) : 1e9;
+      if (d0 > 14 || d0 < -14) return Math.min(d0, dd);
+      // corrugated body: long sides ribbed along x, back end along y, roof shallow
+      const wy = hy - inset - corr(x + hx), wx = hx - inset - corr(y + hy) * 0.8, wz = H / 2 - inset - corr(x + 7) * 0.35;
+      let d = Math.max(Math.abs(y) - wy, x < 0 ? -x - wx : x - (hx - inset - doorT), Math.abs(zc) - wz);
+      // frame: corner posts, bottom and top rails, corner castings
+      const ax = Math.abs(x), ay = Math.abs(y), m = 16;               // frame parts are only evaluated near where they are
+      const nearX = ax > hx - post - m, nearY = ay > hy - post - m, nearBot = z < rail + m, nearTop = z > H - topRail - m;
+      if (nearX && nearY) d = Math.min(d, sdBox(ax - (hx - post / 2), ay - (hy - post / 2), zc, post / 2, post / 2, H / 2));
+      if (nearY && nearBot) d = Math.min(d, sdBox(x, ay - (hy - 4), z - rail / 2, hx, 4, rail / 2));
+      if (nearY && nearTop) d = Math.min(d, sdBox(x, ay - (hy - 4), z - (H - topRail / 2), hx, 4, topRail / 2));
+      if (nearX && nearBot) d = Math.min(d, sdBox(ax - (hx - 4), y, z - rail / 2, 4, hy, rail / 2));
+      if (nearX && nearTop) d = Math.min(d, sdBox(ax - (hx - 4), y, z - (H - topRail / 2), 4, hy, topRail / 2));
+      if (nearX && nearY && (nearBot || nearTop)) for (const zz of [8, H - 8]) {
+        let cc = sdBox(ax - (hx - 9), ay - (hy - 8), z - zz, 9.5, 8.5, 8.5);
+        cc = Math.max(cc, -Math.min(sdBox(ax - (hx - 9), ay - hy, z - zz, 5, 3, 3.5) - 0.5, sdBox(ax - hx, ay - (hy - 8), z - zz, 3, 4.5, 3.5) - 0.5));   // casting holes
+        d = Math.min(d, cc);
+      }
+      if (hollow) d = Math.max(d, -Math.max(Math.abs(y) - (wy - wall), x - ix1, ix0 - x, iz0 - z, z - iz1));
+      for (const dt of dents) {                                    // knocks in the side walls
+        const r = Math.hypot(x - dt.x, y - dt.side * hy, z - dt.z);
+        if (r < dt.r) d += dt.d * (1 - r / dt.r) ** 2;
+      }
+      if (roofDent) { const r = Math.hypot(x - roofDent.x, y * 0.7, z - H); if (r < roofDent.r) d += roofDent.d * (1 - r / roofDent.r) ** 2; }
+      for (const h of holes) {                                     // rusted-through holes
+        if (Math.abs(y - h.side * hy) > 25) continue;
+        const e = Math.hypot((x - h.x) / h.rx, (z - h.z) / h.rz) - 1 + 0.35 * (vnoise(x * 0.12 + h.sd, z * 0.12, 0.5) - 0.5);
+        d = Math.max(d, -e * Math.min(h.rx, h.rz));
+      }
+      d = Math.min(d, dd);                                         // doors last, so hollowing never cuts them
+      if (wreck) d += 1.2 * (vnoise(x * 0.06, y * 0.06, z * 0.06) - 0.5);   // rust and warping
+      return d;
+    };
+    const sw = open || wreck ? doorW + 20 : 20;
+    return { f, llo: [-hx - 5, -hy - sw, -1], lhi: [hx + sw, hy + sw, H + 5], H };
+  }
+  function container(rng, L, mode) {
+    const sh = containerShape(rng, { L, mode });
+    if (mode === 'wreck') {
+      const R = rotMatrix(0, rng.normal(0, 0.12), rng.choice([-1, 1]) * rng.uniform(0.08, 0.3));   // tilted, not yawed (keeps the box tight)
+      return [[fnPrim(sh.f, sh.llo, sh.lhi, R, [0, 0, 0], 2)], sh.H * rng.uniform(0.25, 0.4)];
+    }
+    return [[fnPrim(sh.f, sh.llo, sh.lhi, I3(), [0, 0, 0], 2)], 0.5];
+  }
+
   const MODELS = {
     tree:           { group: 'Trees', label: 'Dead tree', kind: 'tree' },
     skull_longhorn: { group: 'Skulls', label: 'Longhorn steer skull', fn: (r) => bovineSkull(r, 'longhorn') },
@@ -871,6 +955,10 @@ const GEN = (() => {
     fence_rail:     { group: 'Props', label: 'Post-and-rail fence', fn: (r, o) => fence(r, o, 'rail'), smooth: 2, wood: true, fence: true },
     fence_picket:   { group: 'Props', label: 'Picket fence', fn: (r, o) => fence(r, o, 'picket'), smooth: 2, wood: true, fence: true },
     fence_broken:   { group: 'Props', label: 'Broken fence', fn: (r, o) => fence(r, o, 'broken'), smooth: 2, wood: true, fence: true },
+    container_20:   { group: 'Props', label: 'Shipping container, 20 ft', fn: (r) => container(r, 606, 'closed'), smooth: 1, wood: true, steel: true },
+    container_40:   { group: 'Props', label: 'Shipping container, 40 ft', fn: (r) => container(r, 1219, 'closed'), smooth: 1, wood: true, steel: true },
+    container_open: { group: 'Props', label: 'Opened container, 20 ft', fn: (r) => container(r, 606, 'open'), smooth: 1, wood: true, steel: true },
+    container_wreck:{ group: 'Props', label: 'Wrecked container, half buried', fn: (r) => container(r, 606, 'wreck'), smooth: 1, wood: true, steel: true },
     rock_boulder:   { group: 'Rocks', label: 'Boulder', fn: rockBoulder, rock: true },
     rock_cluster:   { group: 'Rocks', label: 'Rock cluster', fn: rockCluster, rock: true },
     rock_scree:     { group: 'Rocks', label: 'Scree (loose stones)', fn: rockScree, rock: true, keepAll: true },
@@ -1249,7 +1337,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   const scaleHints = {
     Skulls: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
     Ribcages: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
-    Props: 'At 1:50 a barrel stands about 18 mm tall, roughly hip height on a 28mm figure. Plank seams and lid boards are about 0.2 mm deep, so resin shows them best.',
+    Props: 'At 1:50 a barrel stands about 18 mm tall, roughly hip height on a 28mm figure. Plank seams and lid boards are about 0.2 mm deep, so resin shows them best. A 20 ft container is about 12 cm long.',
   };
   let curCat = 'Trees';
   function fillModels(cat) {
@@ -1341,6 +1429,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   const barkMat = new THREE.MeshStandardMaterial({ color: 0x6e5a47, roughness: 0.95, metalness: 0 });
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a55, roughness: 0.9, metalness: 0 });
   const rockMat = new THREE.MeshStandardMaterial({ color: 0xa8957d, roughness: 1, metalness: 0 });
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0x9a5444, roughness: 0.7, metalness: 0.15 });
   let mesh = null, last = null;
 
   const orbit = { theta: -0.9, phi: 1.15, dist: 120, target: new THREE.Vector3(0, 0, 10) };
@@ -1415,7 +1504,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
       g.setIndex(new THREE.BufferAttribute(r.indices, 1));
       g.computeVertexNormals();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
-      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
+      mesh = new THREE.Mesh(g, M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat);
       scene.add(mesh);
       const firstOfModel = !last || last.model !== model;
       last = { model, seed, prm, positions: r.positions, indices: r.indices };
