@@ -280,7 +280,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 
   <main class="stage">
     <canvas id="view" aria-label="3D preview of the generated piece. Drag to rotate, scroll or pinch to zoom."></canvas>
-    <div class="tip" id="tip">Drag to rotate · scroll or pinch to zoom</div>
+    <div class="tip" id="tip">Drag to rotate · Shift-drag to pan · scroll or pinch to zoom</div>
     <div class="gizmo-bar" id="gizmoBar" hidden>
       <div class="seg" id="gizmoMode" role="group" aria-label="Transform tool">
         <button type="button" data-gm="translate" aria-pressed="true">Move</button>
@@ -1865,7 +1865,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     $('sceneEmpty').hidden = items.length > 0;
     $('selPanel').hidden = !selected;
     $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length; $('saveLibScene').disabled = !items.length;
-    $('tip').textContent = items.length ? 'Select a piece in the scene list to move it · drag to rotate the view' : 'Drag to rotate · scroll or pinch to zoom';
+    $('tip').textContent = items.length ? 'Select a piece in the scene list to move it · drag to rotate, Shift-drag to pan' : 'Drag to rotate · Shift-drag to pan · scroll or pinch to zoom';
     $('gizmoBar').hidden = !selected || !tc; $('tip').hidden = !!selected && !!tc;
     updateFields();
     if (mesh) mesh.material = liveMaterial();
@@ -1955,7 +1955,12 @@ if (typeof module !== 'undefined') module.exports = GEN;
       if (p) { drag.item.group.position.x = p.x + drag.dx; drag.item.group.position.y = p.y + drag.dy; drag.moved = true; renderSceneUI(); }
       needs = true; return;
     }
-    if (pts.size === 1) {
+    if (pts.size === 1 && e.shiftKey) {                            // Shift-drag pans: move the look-at point with the cursor
+      const k = 2 * orbit.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.max(1, canvas.clientHeight);
+      camera.updateMatrixWorld();
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      orbit.target.addScaledVector(right, -(e.clientX - prev[0]) * k).addScaledVector(up, (e.clientY - prev[1]) * k);
+    } else if (pts.size === 1) {
       orbit.theta -= (e.clientX - prev[0]) * 0.008;
       orbit.phi = Math.min(Math.PI / 2 - 0.02, Math.max(0.08, orbit.phi - (e.clientY - prev[1]) * 0.008));
     } else if (pts.size === 2) {
