@@ -280,7 +280,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 
   <main class="stage">
     <canvas id="view" aria-label="3D preview of the generated piece. Drag to rotate, scroll or pinch to zoom."></canvas>
-    <div class="tip" id="tip">Drag to rotate · Shift-drag to pan · scroll or pinch to zoom</div>
+    <div class="tip" id="tip">Drag to rotate · Shift-drag or two fingers to pan · scroll or pinch to zoom</div>
     <div class="gizmo-bar" id="gizmoBar" hidden>
       <div class="seg" id="gizmoMode" role="group" aria-label="Transform tool">
         <button type="button" data-gm="translate" aria-pressed="true">Move</button>
@@ -1865,7 +1865,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     $('sceneEmpty').hidden = items.length > 0;
     $('selPanel').hidden = !selected;
     $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length; $('saveLibScene').disabled = !items.length;
-    $('tip').textContent = items.length ? 'Select a piece in the scene list to move it · drag to rotate, Shift-drag to pan' : 'Drag to rotate · Shift-drag to pan · scroll or pinch to zoom';
+    $('tip').textContent = items.length ? 'Select a piece in the scene list to move it · drag to rotate, Shift-drag to pan' : 'Drag to rotate · Shift-drag or two fingers to pan · scroll or pinch to zoom';
     $('gizmoBar').hidden = !selected || !tc; $('tip').hidden = !!selected && !!tc;
     updateFields();
     if (mesh) mesh.material = liveMaterial();
@@ -1939,14 +1939,21 @@ if (typeof module !== 'undefined') module.exports = GEN;
   requestAnimationFrame(frame);
 
   // pointer orbit + zoom (mouse, touch, pinch)
-  const pts = new Map(); let pinch0 = 0, dist0 = 0, drag = null, downAt = null;
+  const pts = new Map(); let pinch0 = 0, dist0 = 0, drag = null, downAt = null, mid0 = null;
+  function panBy(dx, dy) {                                        // move the look-at point with the cursor or fingers
+    const k = 2 * orbit.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.max(1, canvas.clientHeight);
+    camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    orbit.target.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+  }
+  const midOf = () => { const [a, b] = [...pts.values()]; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
   const planeHit = (e, z) => { raycaster.setFromCamera(ndc(e), camera); const p = new THREE.Vector3(); return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z), p) ? p : null; };
   canvas.addEventListener('pointerdown', (e) => {
     gizmoUsed = false;
     if (tc && (tc.dragging || tc.axis)) { downAt = null; return; }      // the gizmo handles this drag
     canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
     downAt = [e.clientX, e.clientY];
-    if (pts.size === 2) { drag = null; const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
+    if (pts.size === 2) { drag = null; const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; mid0 = midOf(); } });
   canvas.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId) || (tc && tc.dragging)) return;
     const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -1955,22 +1962,20 @@ if (typeof module !== 'undefined') module.exports = GEN;
       if (p) { drag.item.group.position.x = p.x + drag.dx; drag.item.group.position.y = p.y + drag.dy; drag.moved = true; renderSceneUI(); }
       needs = true; return;
     }
-    if (pts.size === 1 && e.shiftKey) {                            // Shift-drag pans: move the look-at point with the cursor
-      const k = 2 * orbit.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.max(1, canvas.clientHeight);
-      camera.updateMatrixWorld();
-      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-      orbit.target.addScaledVector(right, -(e.clientX - prev[0]) * k).addScaledVector(up, (e.clientY - prev[1]) * k);
+    if (pts.size === 1 && e.shiftKey) {                            // Shift-drag pans
+      panBy(e.clientX - prev[0], e.clientY - prev[1]);
     } else if (pts.size === 1) {
       orbit.theta -= (e.clientX - prev[0]) * 0.008;
       orbit.phi = Math.min(Math.PI / 2 - 0.02, Math.max(0.08, orbit.phi - (e.clientY - prev[1]) * 0.008));
     } else if (pts.size === 2) {
       const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
       if (pinch0 > 0) orbit.dist = Math.min(600, Math.max(15, dist0 * pinch0 / d));
+      const mid = midOf(); if (mid0) panBy(mid[0] - mid0[0], mid[1] - mid0[1]); mid0 = mid;   // two-finger drag pans
     }
     needs = true;
   });
   const up = (e) => {
-    pts.delete(e.pointerId); pinch0 = 0;
+    pts.delete(e.pointerId); pinch0 = 0; mid0 = null;
     if (drag) { if (drag.moved && $('autoDrop').checked) dropItem(drag.item); drag = null; renderSceneUI(); needs = true; }
     downAt = null;
   };
