@@ -530,7 +530,52 @@ def barricade():
     s.save()
 
 
+PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armageddon Terrain Sketches</title>
+<style>
+  body {{ margin: 0; padding: 16px; background: #f3f5f7; color: #1d2733;
+         font-family: Helvetica, Arial, sans-serif; }}
+  h1 {{ font-size: 22px; margin: 8px 0 4px; }}
+  p {{ margin: 0 0 16px; color: #5b6b7c; max-width: 60em; line-height: 1.45; }}
+  nav {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }}
+  nav a {{ color: #1d2733; background: #fff; border: 1px solid #d5dbe1; border-radius: 6px;
+          padding: 4px 10px; text-decoration: none; font-size: 14px; }}
+  section {{ background: #fff; border: 1px solid #d5dbe1; border-radius: 8px; margin-bottom: 16px;
+             overflow: hidden; }}
+  section svg {{ display: block; width: 100%; height: auto; }}
+</style>
+</head>
+<body>
+<h1>Battlefields: Armageddon terrain sketches</h1>
+<p>Top view, front elevation and right side elevation of each piece (third-angle projection), in mm.
+Sizes marked ~ are estimates from photos; the rest are measured off GW's to-scale Event Companion layouts
+or set by the rules. Open the separate .svg files to print at 1:1.</p>
+<nav>{nav}</nav>
+{sections}
+</body>
+</html>
+"""
+
+
+def write_page(names):
+    nav, sections = [], []
+    for name in names:
+        with open(os.path.join(HERE, name + ".svg")) as f:
+            svg = f.read()
+        nav.append(f'<a href="#{name}">{name.replace("-", " ")}</a>')
+        sections.append(f'<section id="{name}">\n{svg}</section>')
+    with open(os.path.join(HERE, "index.html"), "w") as f:
+        f.write(PAGE.format(nav="".join(nav), sections="\n".join(sections)))
+
+
 if __name__ == "__main__":
-    for fn in (large_ruin, small_ruin, shock_array, capacitor_stack, generator_shrine, pylon_run, barricade):
+    pieces = (large_ruin, small_ruin, shock_array, capacitor_stack, generator_shrine, pylon_run, barricade)
+    for fn in pieces:
         fn()
-    print("wrote", ", ".join(sorted(f for f in os.listdir(HERE) if f.endswith(".svg"))))
+    write_page(["large-ruin", "small-ruin", "shock-array", "capacitor-stack", "generator-shrine",
+                "galvanic-pylons", "rockcrete-barricade"])
+    print("wrote index.html and", ", ".join(sorted(f for f in os.listdir(HERE) if f.endswith(".svg"))))
