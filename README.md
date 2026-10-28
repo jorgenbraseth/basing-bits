@@ -6,7 +6,7 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 
 `web/index.html` is a single self-contained page. All generation runs in the browser with no server: pick a piece, change the seed or sliders, preview it in 3D next to a 28mm figure on a 25 mm base, and download the STL.
 
-- **Run it:** use the site at https://jorgenbraseth.github.io/basing-bits/, open `web/index.html` straight from disk, or host it anywhere static.
+- **Run it:** use the site at **https://basingbits.download/**, open `web/index.html` straight from disk, or host it anywhere static.
 - **Download:** a single piece saves as `.stl`; "Download variants" builds 2–20 consecutive seeds into one `.zip`. File names include the model and seed, so you can always regenerate the same piece.
 
 | Tab | Pieces |
@@ -74,7 +74,7 @@ node test/check.js        # optional: build all models (STLs land in test/out/)
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml` runs on every push to `main`: it builds `web/index.html` from `web/src/`, smoke-tests every model, and deploys the page to **https://jorgenbraseth.github.io/basing-bits/** (the old `/web/` address forwards there). Pull requests get the build and test without deploying. This needs **Settings → Pages → Source: GitHub Actions**.
+`.github/workflows/pages.yml` runs on every push to `main`: it builds `web/index.html` from `web/src/`, smoke-tests every model, and deploys the page to **https://basingbits.download/** (a custom domain on GitHub Pages; the old `jorgenbraseth.github.io/basing-bits/` address and its `/web/` path forward there). Pull requests get the build and test without deploying. This needs **Settings → Pages → Source: GitHub Actions**.
 
 You don't need to rebuild before committing; the action does it. The committed `web/index.html` is only there so you can open the generator straight from a download of the repo, and it may lag behind `src/` until you run `python3 web/build.py` yourself.
 
