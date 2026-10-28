@@ -86,6 +86,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .scene-empty { color: var(--muted); font-size: 12px; margin: 0; }
 .xyz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .xyz label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.gizmo-bar { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px));
+  display: flex; align-items: center; gap: 12px; padding: 5px 12px 5px 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.gizmo-bar .seg { grid-template-columns: repeat(2, minmax(64px, 1fr)); }
+.gizmo-bar .seg button { padding: 6px 12px; }
+.gizmo-bar .check { font-size: 12.5px; white-space: nowrap; }
 .hud { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
   display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
 .chip { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
@@ -221,7 +226,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       <h2 id="h-scene">Scene</h2>
       <button class="btn" id="addScene" type="button" disabled>Add piece to scene</button>
       <ul class="scene-list" id="sceneList"></ul>
-      <p class="scene-empty" id="sceneEmpty">Add a piece to start a scene, for example a base topper, then switch tabs and add rocks or props on top. Click a piece in the viewport to select it and drag to move it.</p>
+      <p class="scene-empty" id="sceneEmpty">Add a piece to start a scene, for example a base topper, then switch tabs and add rocks or props on top. Select a piece in this list to move or rotate it.</p>
       <div id="selPanel" class="group" hidden>
         <div class="xyz">
           <label for="px">X (mm)<input id="px" type="number" step="0.5"></label>
@@ -231,17 +236,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
           <label for="rx">Tilt X (°)<input id="rx" type="number" step="5"></label>
           <label for="ry">Tilt Y (°)<input id="ry" type="number" step="5"></label>
         </div>
-        <div class="seg" id="gizmoMode" role="group" aria-label="Gizmo" style="grid-template-columns: repeat(2, 1fr)">
-          <button type="button" data-gm="translate" aria-pressed="true">Move</button>
-          <button type="button" data-gm="rotate" aria-pressed="false">Rotate</button>
-        </div>
-        <label class="check"><input id="snap" type="checkbox"> Snap to 1 mm and 15°</label>
+
         <div class="row">
           <button class="btn" id="dropSel" type="button" style="flex:1">Drop onto surface</button>
           <button class="btn" id="dupSel" type="button">Duplicate</button>
           <button class="btn" id="delSel" type="button">Remove</button>
         </div>
-        <p class="hint">Drag the arrows to move along an axis, or switch to Rotate and drag the rings. Keys: M move, R rotate, arrows nudge 1 mm (Shift: 5 mm), Q and E turn 15°, Delete removes.</p>
+        <p class="hint">Use the Move and Rotate tool at the top of the view: drag the arrows to move along an axis, or the rings to turn. Keys: M move, R rotate, arrows nudge 1 mm (Shift: 5 mm), Q and E turn 15°, Delete removes.</p>
       </div>
       <label class="check"><input id="autoDrop" type="checkbox" checked> Drop pieces onto the surface below when moved</label>
       <label class="field"><span class="field-top">Sink into surface <output id="o-sink"></output></span>
@@ -269,6 +270,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <main class="stage">
     <canvas id="view" aria-label="3D preview of the generated piece. Drag to rotate, scroll or pinch to zoom."></canvas>
     <div class="tip" id="tip">Drag to rotate · scroll or pinch to zoom</div>
+    <div class="gizmo-bar" id="gizmoBar" hidden>
+      <div class="seg" id="gizmoMode" role="group" aria-label="Transform tool">
+        <button type="button" data-gm="translate" aria-pressed="true">Move</button>
+        <button type="button" data-gm="rotate" aria-pressed="false">Rotate</button>
+      </div>
+      <label class="check"><input id="snap" type="checkbox"> Snap 1 mm · 15°</label>
+    </div>
     <div class="busy" id="busy" hidden>Generating…</div>
     <div class="hud">
       <span class="chip"><b>Size</b><span id="s-size">–</span></span>
@@ -1821,7 +1829,8 @@ if (typeof module !== 'undefined') module.exports = GEN;
     $('sceneEmpty').hidden = items.length > 0;
     $('selPanel').hidden = !selected;
     $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length; $('saveLibScene').disabled = !items.length;
-    $('tip').textContent = items.length ? 'Click a piece to select it, drag it to move · drag empty space to rotate the view' : 'Drag to rotate · scroll or pinch to zoom';
+    $('tip').textContent = items.length ? 'Select a piece in the scene list to move it · drag to rotate the view' : 'Drag to rotate · scroll or pinch to zoom';
+    $('gizmoBar').hidden = !selected || !tc; $('tip').hidden = !!selected && !!tc;
     updateFields();
     if (mesh) mesh.material = liveMaterial();
   }
@@ -1901,14 +1910,6 @@ if (typeof module !== 'undefined') module.exports = GEN;
     if (tc && (tc.dragging || tc.axis)) { downAt = null; return; }      // the gizmo handles this drag
     canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
     downAt = [e.clientX, e.clientY];
-    if (pts.size === 1 && e.button === 0) {
-      const hit = pickItem(e);
-      if (hit) {
-        if (hit.item !== selected) selectItem(hit.item);
-        const g = hit.item.group, p = planeHit(e, hit.point.z);
-        drag = p ? { item: hit.item, z: hit.point.z, dx: g.position.x - p.x, dy: g.position.y - p.y, moved: false } : null;
-      }
-    }
     if (pts.size === 2) { drag = null; const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
   canvas.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId) || (tc && tc.dragging)) return;
@@ -1930,7 +1931,6 @@ if (typeof module !== 'undefined') module.exports = GEN;
   const up = (e) => {
     pts.delete(e.pointerId); pinch0 = 0;
     if (drag) { if (drag.moved && $('autoDrop').checked) dropItem(drag.item); drag = null; renderSceneUI(); needs = true; }
-    else if (!gizmoUsed && downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 4 && selected && e.type === 'pointerup' && !pickItem(e)) selectItem(null);   // click on empty space deselects
     downAt = null;
   };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
@@ -2028,7 +2028,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     if (!tc) return; const on = $('snap').checked;
     tc.setTranslationSnap(on ? 1 : null); tc.setRotationSnap(on ? THREE.MathUtils.degToRad(15) : null);
   });
-  if (!tc) $('gizmoMode').hidden = true;
+
   $('dropSel').addEventListener('click', () => { if (selected) { dropItem(selected); renderSceneUI(); needs = true; } });
   $('delSel').addEventListener('click', () => { if (selected) removeItem(selected); });
   $('dupSel').addEventListener('click', () => {
