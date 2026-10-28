@@ -82,6 +82,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   display: flex; align-items: center; gap: 12px; padding: 5px 12px 5px 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .gizmo-bar .seg { grid-template-columns: repeat(2, minmax(64px, 1fr)); }
 .gizmo-bar .seg button { padding: 6px 12px; }
+.gizmo-bar .axis-seg { grid-template-columns: auto repeat(3, 34px); }
+.gizmo-bar .axis-seg button { padding: 6px 8px; font-weight: 600; }
+.gizmo-bar { flex-wrap: wrap; right: max(12px, env(safe-area-inset-right, 0px)); width: max-content; max-width: calc(100% - 24px); }
 .gizmo-bar .check { font-size: 12.5px; white-space: nowrap; }
 .hud { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
   display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
@@ -234,7 +237,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
           <button class="btn" id="dupSel" type="button">Duplicate</button>
           <button class="btn" id="delSel" type="button">Remove</button>
         </div>
-        <p class="hint">Use the Move and Rotate tool at the top of the view: drag the arrows to move along an axis, or the rings to turn. Keys: M move, R rotate, arrows nudge 1 mm (Shift: 5 mm), Q and E turn 15°, Delete removes.</p>
+        <p class="hint">Use the Move and Rotate tool at the top of the view: drag the arrows to move along an axis, or the rings to turn. Lock to one axis with X, Y or Z in the tool (or the X, Y, Z keys; press again to unlock). Keys: M move, R rotate, arrows nudge 1 mm (Shift: 5 mm), Q and E turn 15°, Delete removes.</p>
       </div>
       <label class="check"><input id="autoDrop" type="checkbox" checked> Drop pieces onto the surface below when moved</label>
       <label class="field"><span class="field-top">Sink into surface <output id="o-sink"></output></span>
@@ -266,6 +269,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       <div class="seg" id="gizmoMode" role="group" aria-label="Transform tool">
         <button type="button" data-gm="translate" aria-pressed="true">Move</button>
         <button type="button" data-gm="rotate" aria-pressed="false">Rotate</button>
+      </div>
+      <div class="seg axis-seg" id="axisLock" role="group" aria-label="Lock to one axis">
+        <button type="button" data-ax="all" aria-pressed="true" title="Use all axes">All</button>
+        <button type="button" data-ax="x" aria-pressed="false" title="Only along or around X (key X)" style="color:#d9534f">X</button>
+        <button type="button" data-ax="y" aria-pressed="false" title="Only along or around Y (key Y)" style="color:#5cb85c">Y</button>
+        <button type="button" data-ax="z" aria-pressed="false" title="Only along or around Z (key Z)" style="color:#4a90e2">Z</button>
       </div>
       <label class="check"><input id="snap" type="checkbox"> Snap 1 mm · 15°</label>
     </div>
@@ -425,6 +434,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     if (!selected) return; const g = selected.group, deg = THREE.MathUtils.radToDeg;
     $('px').value = g.position.x.toFixed(1); $('py').value = g.position.y.toFixed(1); $('pz').value = g.position.z.toFixed(2);
     $('pr').value = Math.round(deg(g.rotation.z)); $('rx').value = Math.round(deg(g.rotation.x)); $('ry').value = Math.round(deg(g.rotation.y));
+  }
+  let axisLock = 'all';
+  function setAxisLock(ax) {                                        // show (and allow) only one axis of the gizmo
+    axisLock = ax;
+    if (tc) { tc.showX = ax === 'all' || ax === 'x'; tc.showY = ax === 'all' || ax === 'y'; tc.showZ = ax === 'all' || ax === 'z'; }
+    document.querySelectorAll('#axisLock button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ax === ax)));
+    needs = true;
   }
   function setGizmoMode(mode) {
     if (tc) tc.setMode(mode);
@@ -665,6 +681,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   };
   for (const id of ['px', 'py', 'pz', 'pr', 'rx', 'ry']) $(id).addEventListener('change', setFromFields);
   document.querySelectorAll('#gizmoMode button').forEach((b) => b.addEventListener('click', () => setGizmoMode(b.dataset.gm)));
+  document.querySelectorAll('#axisLock button').forEach((b) => b.addEventListener('click', () => setAxisLock(b.dataset.ax)));
   $('snap').addEventListener('change', () => {
     if (!tc) return; const on = $('snap').checked;
     tc.setTranslationSnap(on ? 1 : null); tc.setRotationSnap(on ? THREE.MathUtils.degToRad(15) : null);
@@ -812,6 +829,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     else if (e.key === 'ArrowUp') g.position.y += step; else if (e.key === 'ArrowDown') g.position.y -= step;
     else if (e.key === 'q' || e.key === 'Q') g.rotation.z += Math.PI / 12; else if (e.key === 'e' || e.key === 'E') g.rotation.z -= Math.PI / 12;
     else if (e.key === 'm' || e.key === 'M') { setGizmoMode('translate'); return; } else if (e.key === 'r' || e.key === 'R') { setGizmoMode('rotate'); return; }
+    else if (/^[xyzXYZ]$/.test(e.key)) { const ax = e.key.toLowerCase(); setAxisLock(axisLock === ax ? 'all' : ax); return; }
     else if (e.key === 'Delete' || e.key === 'Backspace') { removeItem(selected); e.preventDefault(); return; }
     else return;
     e.preventDefault(); if (e.key.startsWith('Arrow') && $('autoDrop').checked) dropItem(selected);
