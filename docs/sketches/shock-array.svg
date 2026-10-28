@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="315mm" height="283mm" viewBox="0 0 315.0 283.0" font-family="Helvetica, Arial, sans-serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<polygon points="44.00,72.00 167.00,72.00 167.00,64.00 44.00,64.00" fill="#e8ecf0" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="55.50,88.00 73.50,88.00 73.50,48.00 55.50,48.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.35" stroke-linejoin="round"/>
+<circle cx="64.50" cy="68.00" r="7.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<polygon points="96.50,88.00 114.50,88.00 114.50,48.00 96.50,48.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.35" stroke-linejoin="round"/>
+<circle cx="105.50" cy="68.00" r="7.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<polygon points="137.50,88.00 155.50,88.00 155.50,48.00 137.50,48.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.35" stroke-linejoin="round"/>
+<circle cx="146.50" cy="68.00" r="7.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<line x1="44.00" y1="48.00" x2="44.00" y2="41.50" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="167.00" y1="48.00" x2="167.00" y2="41.50" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="44.00" y1="43.00" x2="167.00" y2="43.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="44.00,43.00 46.20,42.30 46.20,43.70" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="167.00,43.00 164.80,42.30 164.80,43.70" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="105.50" y="41.80" font-size="2.8" text-anchor="middle" fill="#c0392b" font-weight="normal">123 mm (4.84")</text>
+<line x1="167.00" y1="88.00" x2="175.50" y2="88.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="167.00" y1="48.00" x2="175.50" y2="48.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="174.00" y1="88.00" x2="174.00" y2="48.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="174.00,88.00 174.70,85.80 173.30,85.80" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="174.00,48.00 174.70,50.20 173.30,50.20" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="172.80" y="68.00" font-size="2.8" text-anchor="middle" fill="#c0392b" transform="rotate(-90 172.80 68.00)">40 mm (1.57")</text>
+<polygon points="44.00,206.00 167.00,206.00 167.00,192.00 44.00,192.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="48.50,206.00 80.50,206.00 70.50,192.00 58.50,192.00" fill="#e8ecf0" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="60.50,206.00 68.50,206.00 68.50,158.00 60.50,158.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="56.50,190.00 72.50,190.00 72.50,188.00 56.50,188.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="56.50,187.00 72.50,187.00 72.50,185.00 56.50,185.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="56.50,184.00 72.50,184.00 72.50,182.00 56.50,182.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="56.50,181.00 72.50,181.00 72.50,179.00 56.50,179.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="56.50,178.00 72.50,178.00 72.50,176.00 56.50,176.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="56.50,175.00 72.50,175.00 72.50,173.00 56.50,173.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<circle cx="64.50" cy="166.00" r="6.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<circle cx="64.50" cy="154.00" r="10.00" fill="none" stroke="#1d2733" stroke-width="0.5"/>
+<circle cx="64.50" cy="154.00" r="4.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<polygon points="89.50,206.00 121.50,206.00 111.50,192.00 99.50,192.00" fill="#e8ecf0" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="101.50,206.00 109.50,206.00 109.50,158.00 101.50,158.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="97.50,190.00 113.50,190.00 113.50,188.00 97.50,188.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="97.50,187.00 113.50,187.00 113.50,185.00 97.50,185.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="97.50,184.00 113.50,184.00 113.50,182.00 97.50,182.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="97.50,181.00 113.50,181.00 113.50,179.00 97.50,179.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="97.50,178.00 113.50,178.00 113.50,176.00 97.50,176.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="97.50,175.00 113.50,175.00 113.50,173.00 97.50,173.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<circle cx="105.50" cy="166.00" r="6.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<circle cx="105.50" cy="154.00" r="10.00" fill="none" stroke="#1d2733" stroke-width="0.5"/>
+<circle cx="105.50" cy="154.00" r="4.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<polygon points="130.50,206.00 162.50,206.00 152.50,192.00 140.50,192.00" fill="#e8ecf0" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="142.50,206.00 150.50,206.00 150.50,158.00 142.50,158.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="138.50,190.00 154.50,190.00 154.50,188.00 138.50,188.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="138.50,187.00 154.50,187.00 154.50,185.00 138.50,185.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="138.50,184.00 154.50,184.00 154.50,182.00 138.50,182.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="138.50,181.00 154.50,181.00 154.50,179.00 138.50,179.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="138.50,178.00 154.50,178.00 154.50,176.00 138.50,176.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="138.50,175.00 154.50,175.00 154.50,173.00 138.50,173.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<circle cx="146.50" cy="166.00" r="6.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<circle cx="146.50" cy="154.00" r="10.00" fill="none" stroke="#1d2733" stroke-width="0.5"/>
+<circle cx="146.50" cy="154.00" r="4.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5"/>
+<path d="M 74.50,152.00 L 80.50,144.00 L 84.50,150.00 L 90.50,140.00 L 87.50,148.00 L 93.50,139.00 L 95.50,150.00" fill="none" stroke="#2e86c1" stroke-width="0.5" stroke-linejoin="round"/>
+<path d="M 115.50,152.00 L 121.50,144.00 L 125.50,150.00 L 131.50,140.00 L 128.50,148.00 L 134.50,139.00 L 136.50,150.00" fill="none" stroke="#2e86c1" stroke-width="0.5" stroke-linejoin="round"/>
+<path d="M 46.00,156.00 L 50.00,142.00 L 54.00,148.00 L 58.00,136.00" fill="none" stroke="#2e86c1" stroke-width="0.5" stroke-linejoin="round"/>
+<path d="M 165.00,156.00 L 161.00,142.00 L 157.00,148.00 L 153.00,136.00" fill="none" stroke="#2e86c1" stroke-width="0.5" stroke-linejoin="round"/>
+<line x1="38.00" y1="206.00" x2="173.00" y2="206.00" stroke="#1d2733" stroke-width="0.6"/>
+<line x1="44.00" y1="206.00" x2="44.00" y2="213.50" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="167.00" y1="206.00" x2="167.00" y2="213.50" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="44.00" y1="212.00" x2="167.00" y2="212.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="44.00,212.00 46.20,211.30 46.20,212.70" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="167.00,212.00 164.80,211.30 164.80,212.70" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="105.50" y="210.80" font-size="2.8" text-anchor="middle" fill="#c0392b" font-weight="normal">123 mm (4.84")</text>
+<line x1="44.00" y1="206.00" x2="35.50" y2="206.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="44.00" y1="136.00" x2="35.50" y2="136.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="37.00" y1="206.00" x2="37.00" y2="136.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="37.00,206.00 37.70,203.80 36.30,203.80" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="37.00,136.00 37.70,138.20 36.30,138.20" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="35.80" y="171.00" font-size="2.8" text-anchor="middle" fill="#c0392b" transform="rotate(-90 35.80 171.00)">~70 mm (2.76")</text>
+<line x1="167.00" y1="206.00" x2="175.50" y2="206.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="167.00" y1="144.00" x2="175.50" y2="144.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="174.00" y1="206.00" x2="174.00" y2="144.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="174.00,206.00 174.70,203.80 173.30,203.80" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="174.00,144.00 174.70,146.20 173.30,146.20" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="172.80" y="175.00" font-size="2.8" text-anchor="middle" fill="#c0392b" transform="rotate(-90 172.80 175.00)">~62 mm (2.44")</text>
+<line x1="167.00" y1="206.00" x2="183.50" y2="206.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="167.00" y1="192.00" x2="183.50" y2="192.00" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="182.00" y1="206.00" x2="182.00" y2="192.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="182.00,206.00 182.70,203.80 181.30,203.80" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="182.00,192.00 182.70,194.20 181.30,194.20" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="180.80" y="199.00" font-size="2.8" text-anchor="middle" fill="#c0392b" transform="rotate(-90 180.80 199.00)">~14 mm (0.55")</text>
+<polygon points="219.00,206.00 259.00,206.00 244.00,192.00 234.00,192.00" fill="#e8ecf0" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="235.00,206.00 243.00,206.00 243.00,158.00 235.00,158.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<polygon points="231.00,190.00 247.00,190.00 247.00,188.00 231.00,188.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="231.00,187.00 247.00,187.00 247.00,185.00 231.00,185.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="231.00,184.00 247.00,184.00 247.00,182.00 231.00,182.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="231.00,181.00 247.00,181.00 247.00,179.00 231.00,179.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="231.00,178.00 247.00,178.00 247.00,176.00 231.00,176.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="231.00,175.00 247.00,175.00 247.00,173.00 231.00,173.00" fill="#e8ecf0" stroke="#5b6b7c" stroke-width="0.25" stroke-linejoin="round"/>
+<polygon points="237.00,164.00 241.00,164.00 241.00,144.00 237.00,144.00" fill="#ffffff" stroke="#1d2733" stroke-width="0.5" stroke-linejoin="round"/>
+<path d="M 239.00,144.00 L 235.00,140.00 L 242.00,136.00" fill="none" stroke="#2e86c1" stroke-width="0.5" stroke-linejoin="round"/>
+<line x1="213.00" y1="206.00" x2="265.00" y2="206.00" stroke="#1d2733" stroke-width="0.6"/>
+<line x1="219.00" y1="206.00" x2="219.00" y2="213.50" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="259.00" y1="206.00" x2="259.00" y2="213.50" stroke="#c0392b" stroke-width="0.2"/>
+<line x1="219.00" y1="212.00" x2="259.00" y2="212.00" stroke="#c0392b" stroke-width="0.25"/>
+<polygon points="219.00,212.00 221.20,211.30 221.20,212.70" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<polygon points="259.00,212.00 256.80,211.30 256.80,212.70" fill="#c0392b" stroke="#c0392b" stroke-width="0.1" stroke-linejoin="round"/>
+<text x="239.00" y="210.80" font-size="2.8" text-anchor="middle" fill="#c0392b" font-weight="normal">40 mm (1.57")</text>
+<text x="105.50" y="39.00" font-size="3.4" text-anchor="middle" fill="#1d2733" font-weight="bold" letter-spacing="0.4">TOP VIEW</text>
+<text x="105.50" y="219.00" font-size="3.4" text-anchor="middle" fill="#1d2733" font-weight="bold" letter-spacing="0.4">FRONT ELEVATION</text>
+<text x="239.00" y="219.00" font-size="3.4" text-anchor="middle" fill="#1d2733" font-weight="bold" letter-spacing="0.4">RIGHT SIDE ELEVATION</text>
+<text x="26" y="26" font-size="6" fill="#1d2733" font-weight="bold">Shock Array</text>
+<text x="26" y="33" font-size="3.2" fill="#5b6b7c">Warhammer 40,000 11th edition, Battlefields: Armageddon. 1:1 scale in mm, third-angle projection.</text>
+<text x="26" y="230.00" font-size="3" fill="#5b6b7c">Light. Plan size measured; heights scaled from a front-on photo (height / length = 0.57).</text>
+<text x="26" y="236.00" font-size="3" fill="#5b6b7c">Three skull-ring emitter posts on a riveted base beam with triangular feet; sculpted lightning arcs between the rings.</text>
+<text x="26" y="242.00" font-size="3" fill="#5b6b7c">Sizes without ~ are measured off GW's to-scale Event Companion layouts (+/-4 mm) or set by the rules. ~ means estimated from photos (+/-15%).</text>
+</svg>

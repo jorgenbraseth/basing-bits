@@ -43,8 +43,8 @@ So floors and ledges should sit at 3" or slightly above, never below. GW sets no
 
 | Category | GW's examples | Armageddon pieces (from the Event Companion colour coding) |
 |---|---|---|
-| Dense (also Solid) | buildings, ruins, armoured containers, woods | large ruins, Shock Array, Capacitor Stack, Generator Shrine |
-| Light | barricades, low walls, statuary | small ruin corners, Rockcrete Barricades, Galvanic Pylons |
+| Dense (also Solid) | buildings, ruins, armoured containers, woods | large ruins, Capacitor Stack, Generator Shrine, Galvanic Pylon run |
+| Light | barricades, low walls, statuary | small ruin corners, Shock Array, Rockcrete Barricade |
 | Exposed | craters, razorwire, scattered debris | none |
 
 ## Plan sizes
@@ -58,14 +58,14 @@ Measured off the Event Companion v1.0 layout diagrams ([PDF](https://assets.warh
 | Large ruin EF | 6.41 × 4.94" (163 × 125 mm) | L-shaped |
 | Large ruin GH | 3.19 × 6.41" (81 × 163 mm) | L-shaped, narrow and long |
 | Small ruin corner (4 variants) | 2.94 × 1.88", 3.12 × 1.75", 1.88 × 3.00", 1.66 × 1.88" (75 × 48, 79 × 44, 48 × 76, 42 × 48 mm) | |
-| Shock Array | 8.12 × 1.94" (206 × 49 mm) | three rails on four posts |
+| Shock Array | 4.84 × 1.59" (123 × 40 mm) | three emitter posts on a base beam |
 | Capacitor Stack | 4.28 × 1.78" (109 × 45 mm) | two round stacks |
 | Cogitator and servitor add-on | 1.50 × 2.72" (38 × 69 mm) | attached to a Capacitor Stack in some layouts |
 | Generator Shrine | 3.47 × 2.62" (88 × 67 mm) | |
-| Galvanic Pylon (probably) | 3.81 × 1.28" (97 × 33 mm) | rail on two legs |
-| Two Rockcrete Barricades end to end (probably) | 4.81 × 1.59" (122 × 40 mm) | three-post run |
+| Galvanic Pylon run | 8.12 × 1.94" (206 × 49 mm) | four pylons carrying three cable bundles, ribbed end cap |
+| Rockcrete Barricade | 3.81 × 1.28" (97 × 33 mm) | two slabs between three posts |
 
-The ruin letters are printed on the diagrams. The other pieces were identified from how many appear per layout and from sprue photos; the pylon and barricade could be the other way round. A pylon, Shrine and pylon chain spans about 10".
+The ruin letters are printed on the diagrams. The other pieces were identified from how many appear per layout, from their outlines and from photos. The Shock Array fits the three-post outline: a front-on photo shows three posts, and its base beam on the sprue is about 120 mm long. The four-post outline with three parallel rails and a ribbed end cap matches the pylons and their cable bundles. An earlier version of this doc had these swapped. The pylon run and the barricade could still be the other way round.
 
 Tale of Painters gives the moulded ruin pairs as A/B, C/D, E/H, G/F, but the Event Companion pairs them AB, CD, EF, GH. This table follows the Companion.
 
@@ -75,18 +75,35 @@ Tale of Painters gives the moulded ruin pairs as A/B, C/D, E/H, G/F, but the Eve
 |---|---|---|
 | Mezzanine floor height | 3" (76 mm) | Measured ([Tale of Painters](https://taleofpainters.com/2026/07/every-11th-edition-warhammer-40k-starter-set-unboxed-reviewed/)), matches the rules note |
 | Storeys | ground floor and one partial mezzanine; broken tower bays rise above it | Measured (photos) |
-| Tallest wall | about 5.5" ± 0.5" (125–150 mm) | Estimate |
-| Low ruined wall runs | about 1.3–3" (33–76 mm), with a sloping rubble edge | Estimate |
-| Wall thickness, including pilasters and pipes | about 0.25–0.5" (6–12 mm) | Estimate |
-| Large door | about 1.15 × 1.7" (29 × 43 mm) | Estimate |
-| Arched windows | about 0.6 × 1.0" (15–17 × 23–28 mm) | Estimate |
-| Louvred vent slots at floor level | about 0.3 × 0.55" (8 × 14 mm) | Estimate |
+| Tallest wall | about 5" (127 mm) | Estimate |
+| Low ruined wall runs | about 1.2–3" (30–76 mm), with a sloping rubble edge | Estimate |
+| Frieze band at the top of the ground floor | about 57 mm | Estimate |
+| Wall thickness, including pilasters and pipes | about 5 mm | Estimate |
+| Large door (solid, not an opening) | about 21 × 45 mm | Estimate |
+| Ground floor machinery niches (solid) | about 14 mm wide, 44 mm to the arch tip | Estimate |
+| Upper arched windows (open) | about 14 × 18 mm | Estimate |
+| Louvred vents just under the floor | about 8 × 14 mm | Estimate |
+| Pilasters | about 6 mm wide, bays about 17–24 mm | Estimate |
 | Mezzanine floor | riveted 2 × 2 plate grid with a hatch, broken ragged edge, sculpted underside | Measured (photos) |
-| Small corners | short ruined wall stubs, perhaps 1.5–2.5" (38–64 mm) tall | Estimate |
+| Small corners | short ruined wall stubs, perhaps 60 mm tall | Estimate |
+
+How the ruin estimates were made: GW's sprue frames are about 290 mm wide. At that scale the ruin wall panel comes out 130 mm long, which matches the measured plan sizes. Its floor slot is at 76 mm, which matches the 3" floor. The heights were then cross-checked against a photo of an assembled ruin. They should be good to ±15%.
 
 ## Non-ruin pieces
 
-No heights have been published for the Shock Array, Capacitor Stack, Generator Shrine, Galvanic Pylon or Rockcrete Barricade. The Dense pieces are presumably tall enough to hide infantry. A reviewer mentions "the taller barricades", which suggests the barricades come in two heights.
+No heights have been published. These are estimates, scaled from sprue photos, a front-on photo of the Shock Array and a photo of the whole table:
+
+| Piece | Height | Notes |
+|---|---|---|
+| Shock Array | about 70 mm to the lightning tips, 62 mm to the emitter rings | base beam about 14 mm |
+| Capacitor Stack | about 75 mm | each ribbed cylinder about 63–67 mm |
+| Generator Shrine | about 100 mm to the aquila, 82 mm to the side frames | ±20% |
+| Galvanic Pylon run | about 80 mm | pylons about 47 mm apart |
+| Rockcrete Barricade | about 55 mm | a reviewer mentions "the taller barricades", so there may be two heights |
+
+## Sketches
+
+[`sketches/`](sketches/) has a dimensioned drawing of each piece: top view, front elevation and right side elevation, in third-angle projection at 1:1 scale in mm. Printing at 100% gives the real size. `python3 docs/sketches/make_sketches.py` regenerates them.
 
 ## Visual style
 
@@ -107,6 +124,6 @@ Older GW ruins don't fit the 11e layouts. Sector Imperialis storeys are about 5�
 
 Caliper measurements of a real kit would settle:
 
-- Large ruin: overall height, wall thickness, window and door openings, floor thickness.
+- Large ruin: overall height, wall profile, wall thickness, window and door openings, floor thickness.
 - Small ruin corner height.
 - Heights of the Shock Array, Capacitor Stack, Generator Shrine, Galvanic Pylon and Rockcrete Barricade.
