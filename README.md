@@ -24,6 +24,10 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 
 With **Drop pieces onto the surface below** on, a piece you move settles onto whatever is under its centre and sinks in by the **Sink into surface** amount (0.4 mm by default), so the parts fuse when printed. **Download scene STL** writes every piece, in place, into one STL. Overlapping parts are simply stacked meshes; slicers merge them when they print.
 
+### Library
+
+**Save piece** and **Save scene** keep the current piece, or the whole scene with every piece's position and rotation, in a library stored in your browser (IndexedDB) on this machine only. Nothing is uploaded. Each entry has a thumbnail; **Add to scene** puts a saved piece back into the scene, and **Load into scene** brings back a saved scene with everything in place. The library belongs to the browser and the site address it was saved from, so the GitHub Pages site, a local copy of `index.html` and the claude.ai version each have their own. Clearing the browser's site data deletes it.
+
 ### Scale
 
 Skulls, ribcages and props are modelled in real-world centimetres and scaled with the **Model scale** slider (mm per real cm). The defaults are 1:40 for bones, slightly heroic so they read well on the table, and 1:50 for props. Strict 28mm is about 1:56. Rocks have no real-world scale; the **Size** slider scales them directly (at ×1 a boulder is about 20 mm across).

@@ -74,6 +74,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   padding: 7px 10px; border-radius: var(--r); border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
 .scene-list button span:last-child { color: var(--muted); font: 400 12px var(--font-mono); white-space: nowrap; }
 .scene-list button[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.lib-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lib-item { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
+.lib-item img { width: 64px; height: 44px; object-fit: cover; border-radius: 5px; background: var(--view); display: block; }
+.lib-item .meta { min-width: 0; display: grid; gap: 4px; }
+.lib-item .name { font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-item .sub { font: 400 11.5px var(--font-mono); color: var(--muted); }
+.lib-item .acts { display: flex; gap: 6px; }
+.lib-item .acts button { font: 500 12px var(--font-body); padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.kind { font: 500 10.5px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-right: 6px; }
 .scene-empty { color: var(--muted); font-size: 12px; margin: 0; }
 .xyz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .xyz label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
@@ -242,6 +251,18 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <button class="btn" id="clearScene" type="button" disabled>Clear</button>
       </div>
       <p class="note" id="sceneNote">The scene downloads as one STL with every piece in place. Pieces that overlap are merged by the slicer when it prints.</p>
+    </section>
+
+    <section class="group" aria-labelledby="h-lib">
+      <h2 id="h-lib">Library</h2>
+      <input id="libName" type="text" maxlength="80" placeholder="Name for the next save (optional)" aria-label="Name for the next save">
+      <div class="row">
+        <button class="btn" id="saveLibPiece" type="button" style="flex:1" disabled>Save piece</button>
+        <button class="btn" id="saveLibScene" type="button" style="flex:1" disabled>Save scene</button>
+      </div>
+      <ul class="lib-list" id="libList"></ul>
+      <p class="scene-empty" id="libEmpty">Saved pieces and scenes appear here. They're kept in this browser on this machine only, so they stay after you close the page.</p>
+      <p class="note" id="libNote"></p>
     </section>
   </aside>
 
@@ -1724,14 +1745,19 @@ if (typeof module !== 'undefined') module.exports = GEN;
   const ghost = new THREE.Mesh(new THREE.BufferGeometry(), ghostMat); ghost.visible = false; scene.add(ghost);
   const BASE_H = 3.8;
   function setGhost(prm) {
-    if (!prm || !prm.base) { ghost.visible = false; return; }
+    const g = ghostGeom(prm);
+    if (!g) { ghost.visible = false; return; }
+    ghost.geometry.dispose(); ghost.geometry = g; ghost.visible = true;
+  }
+  function ghostGeom(prm) {
+    if (!prm || !prm.base) return null;
     const info = GEN.BASES.find((q) => q.id === prm.base);
     let tw, td, bw, bd;
     if (info) { const m = info.label.match(/([\d.]+)(?: × ([\d.]+))? mm/); bw = +m[1]; bd = m[2] ? +m[2] : bw; tw = info.w; td = info.d; }
     else { tw = prm.w; td = prm.d; bw = tw + 3; bd = td + 3; }
     const g = new THREE.CylinderGeometry(tw / 2, bw / 2, BASE_H, 96, 1); g.rotateX(Math.PI / 2); g.translate(0, 0, -BASE_H / 2);
     g.scale(1, (td / tw + bd / bw) / 2, 1);
-    ghost.geometry.dispose(); ghost.geometry = g; ghost.visible = true;
+    return g;
   }
 
   // ---------- scene: baked pieces that can be moved and exported together ----------
@@ -1794,7 +1820,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     }
     $('sceneEmpty').hidden = items.length > 0;
     $('selPanel').hidden = !selected;
-    $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length;
+    $('dlScene').disabled = !items.length || !downloads; $('clearScene').disabled = !items.length; $('saveLibScene').disabled = !items.length;
     $('tip').textContent = items.length ? 'Click a piece to select it, drag it to move · drag empty space to rotate the view' : 'Drag to rotate · scroll or pinch to zoom';
     updateFields();
     if (mesh) mesh.material = liveMaterial();
@@ -1807,7 +1833,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
     if (src.ghostGeo) group.add(new THREE.Mesh(src.ghostGeo.clone(), ghostMat));
     group.position.set(src.x || 0, src.y || 0, 0); group.rotation.set(src.rx || 0, src.ry || 0, src.rot || 0);
     scene.add(group);
-    const it = { id: nextId++, name: src.name, model: src.model, positions: src.positions, indices: src.indices, material: src.material, ghostGeo: src.ghostGeo, group, mesh: m };
+    const it = { id: nextId++, name: src.name, model: src.model, prm: src.prm || null, positions: src.positions, indices: src.indices, material: src.material, ghostGeo: src.ghostGeo, group, mesh: m };
     items.push(it);
     if (src.z != null) group.position.z = src.z; else dropItem(it);
     selectItem(it);
@@ -1845,6 +1871,10 @@ if (typeof module !== 'undefined') module.exports = GEN;
   const rockMat = new THREE.MeshStandardMaterial({ color: 0xa8957d, roughness: 1, metalness: 0 });
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x9a5444, roughness: 0.7, metalness: 0.15 });
   let mesh = null, last = null;
+  function matFor(model) {
+    const m = M[model] || {};
+    return m.baseTopper ? (m.ground === 'planks' ? woodMat : m.ground === 'deck' ? steelMat : rockMat) : m.kind === 'tree' ? barkMat : m.steel ? steelMat : m.wood ? woodMat : m.rock ? rockMat : boneMat;
+  }
 
   const orbit = { theta: -0.9, phi: 1.15, dist: 120, target: new THREE.Vector3(0, 0, 10) };
   function placeCamera() {
@@ -1941,7 +1971,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
       g.setIndex(new THREE.BufferAttribute(r.indices, 1));
       g.computeVertexNormals();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
-      const mat = M[model].baseTopper ? (M[model].ground === 'planks' ? woodMat : M[model].ground === 'deck' ? steelMat : rockMat) : M[model].kind === 'tree' ? barkMat : M[model].steel ? steelMat : M[model].wood ? woodMat : M[model].rock ? rockMat : boneMat;
+      const mat = matFor(model);
       mesh = new THREE.Mesh(g, mat); mesh.userData.baseMat = mat; mesh.material = liveMaterial();
       scene.add(mesh);
       setGhost(M[model].baseTopper ? prm : null);
@@ -1981,7 +2011,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   $('addScene').addEventListener('click', () => {
     if (!last) return;
     const info = M[last.model], extra = last.prm && last.prm.base ? ' · ' + (last.prm.base === 'custom' ? last.prm.w + '×' + last.prm.d : last.prm.base.replace(/^[ro]/, '')) : '';
-    addItem({ name: `${info.label} #${last.seed}${extra}`, model: last.model, positions: last.positions.slice(), indices: last.indices.slice(),
+    addItem({ name: `${info.label} #${last.seed}${extra}`, model: last.model, prm: last.prm, positions: last.positions.slice(), indices: last.indices.slice(),
       material: mesh.userData.baseMat, ghostGeo: info.baseTopper && ghost.visible ? ghost.geometry : null });
     mesh.visible = false; ghost.visible = false; needs = true;
   });
@@ -2003,7 +2033,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
   $('delSel').addEventListener('click', () => { if (selected) removeItem(selected); });
   $('dupSel').addEventListener('click', () => {
     if (!selected) return; const s = selected, g = s.group;
-    addItem({ name: s.name, model: s.model, positions: s.positions, indices: s.indices, material: s.material, ghostGeo: s.ghostGeo, x: g.position.x + 8, y: g.position.y + 4, z: $('autoDrop').checked ? null : g.position.z, rot: g.rotation.z, rx: g.rotation.x, ry: g.rotation.y });
+    addItem({ name: s.name, model: s.model, prm: s.prm, positions: s.positions, indices: s.indices, material: s.material, ghostGeo: s.ghostGeo, x: g.position.x + 8, y: g.position.y + 4, z: $('autoDrop').checked ? null : g.position.z, rot: g.rotation.z, rx: g.rotation.x, ry: g.rotation.y });
   });
   let clearArmed = null;
   $('clearScene').addEventListener('click', () => {
@@ -2018,6 +2048,122 @@ if (typeof module !== 'undefined') module.exports = GEN;
     if (inClaude) await save(name + '.zip', GEN.toZip([{ name: name + '.stl', data: stl }]));
     else await save(name + '.stl', stl, 'model/stl');
   });
+  // ---------- library: pieces and scenes saved in this browser (IndexedDB) ----------
+  const LIB = (() => {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open('basing-bits-library', 1);
+        r.onupgradeneeded = () => { r.result.createObjectStore('meta', { keyPath: 'id', autoIncrement: true }); r.result.createObjectStore('data'); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    }));
+    const done = (t) => new Promise((res, rej) => { t.oncomplete = res; t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
+    return {
+      async add(meta, data) {
+        const db = await open(), t = db.transaction(['meta', 'data'], 'readwrite');
+        const req = t.objectStore('meta').add(meta); let id;
+        req.onsuccess = () => { id = req.result; t.objectStore('data').put(data, id); };
+        await done(t); return id;
+      },
+      async list() {
+        const db = await open(), t = db.transaction('meta'), req = t.objectStore('meta').getAll();
+        await done(t); return req.result.sort((a, b) => b.created - a.created);
+      },
+      async data(id) { const db = await open(), t = db.transaction('data'), req = t.objectStore('data').get(id); await done(t); return req.result; },
+      async remove(id) { const db = await open(), t = db.transaction(['meta', 'data'], 'readwrite'); t.objectStore('meta').delete(id); t.objectStore('data').delete(id); await done(t); },
+    };
+  })();
+  function snapshot(onlyLive) {                                     // small thumbnail of what the viewport shows
+    try {
+      const hidden = [];
+      const hide = (o) => { if (o && o.visible) { o.visible = false; hidden.push(o); } };
+      let restoreLive = null;
+      if (onlyLive) {
+        items.forEach((it) => hide(it.group));
+        if (mesh) { restoreLive = { visible: mesh.visible, material: mesh.material }; mesh.visible = true; mesh.material = mesh.userData.baseMat; }
+      } else hide(mesh);
+      hide(tc); hide(fig); hide(grid);
+      placeCamera(); renderer.render(scene, camera);
+      const c = document.createElement('canvas'); c.width = 192; c.height = 132;
+      const sw = canvas.width, sh = canvas.height, k = Math.min(sw / 192, sh / 132);
+      c.getContext('2d').drawImage(canvas, (sw - 192 * k) / 2, (sh - 132 * k) / 2, 192 * k, 132 * k, 0, 0, 192, 132);
+      hidden.forEach((o) => { o.visible = true; }); if (restoreLive) { mesh.visible = restoreLive.visible; mesh.material = restoreLive.material; } needs = true;
+      return c.toDataURL('image/jpeg', 0.78);
+    } catch (e) { return ''; }
+  }
+  const libNote = (t, err) => { $('libNote').textContent = t; $('libNote').className = 'note' + (err ? ' err' : ''); };
+  const fmtTris = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M tris' : Math.round(n / 1000) + 'k tris';
+  async function refreshLib() {
+    let entries = [];
+    try { entries = await LIB.list(); } catch (e) { libNote('This browser is not letting the page store data, so the library is unavailable here (a private window can cause this).', true); return; }
+    const list = $('libList'); list.innerHTML = '';
+    for (const en of entries) {
+      const li = document.createElement('li'); li.className = 'lib-item';
+      const img = document.createElement('img'); img.alt = ''; if (en.thumb) img.src = en.thumb;
+      const meta = document.createElement('div'); meta.className = 'meta';
+      const name = document.createElement('div'); name.className = 'name';
+      const kind = document.createElement('span'); kind.className = 'kind'; kind.textContent = en.kind === 'scene' ? 'Scene' : 'Piece';
+      name.append(kind, document.createTextNode(en.name));
+      const sub = document.createElement('div'); sub.className = 'sub';
+      sub.textContent = (en.kind === 'scene' ? en.count + ' pieces · ' : '') + fmtTris(en.tris) + ' · ' + new Date(en.created).toLocaleDateString();
+      const acts = document.createElement('div'); acts.className = 'acts';
+      const addB = document.createElement('button'); addB.type = 'button'; addB.textContent = en.kind === 'scene' ? 'Load into scene' : 'Add to scene';
+      addB.addEventListener('click', () => loadEntry(en));
+      const delB = document.createElement('button'); delB.type = 'button'; delB.textContent = 'Delete'; let armed = null;
+      delB.addEventListener('click', async () => {
+        if (!armed) { delB.textContent = 'Click again'; armed = setTimeout(() => { armed = null; delB.textContent = 'Delete'; }, 3000); return; }
+        clearTimeout(armed);
+        try { await LIB.remove(en.id); libNote('Deleted ' + en.name + '.'); } catch (e) { libNote('Could not delete it: ' + (e && e.message || e), true); }
+        refreshLib();
+      });
+      acts.append(addB, delB); meta.append(name, sub, acts); li.append(img, meta); list.append(li);
+    }
+    $('libEmpty').hidden = entries.length > 0;
+    try { const est = navigator.storage && await navigator.storage.estimate(); if (est && entries.length) libNote('Using ' + (est.usage / 1048576).toFixed(0) + ' MB in this browser.'); } catch (e) {}
+  }
+  async function saveEntry(kind) {
+    const typed = $('libName').value.trim();
+    try {
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      if (kind === 'piece') {
+        if (!last) return;
+        const info = M[last.model], extra = last.prm && last.prm.base ? ' · ' + (last.prm.base === 'custom' ? last.prm.w + '×' + last.prm.d : last.prm.base.replace(/^[ro]/, '')) : '';
+        const name = typed || `${info.label} #${last.seed}${extra}`;
+        await LIB.add({ kind, name, created: Date.now(), thumb: snapshot(true), tris: last.indices.length / 3, model: last.model },
+          { model: last.model, seed: last.seed, prm: last.prm, positions: last.positions, indices: last.indices });
+        libNote('Saved ' + name + ' to the library.');
+      } else {
+        if (!items.length) return;
+        const name = typed || `Scene with ${items.length} pieces`;
+        const data = { items: items.map((it) => ({ name: it.name, model: it.model, prm: it.prm, positions: it.positions, indices: it.indices,
+          pos: it.group.position.toArray(), rot: [it.group.rotation.x, it.group.rotation.y, it.group.rotation.z] })) };
+        await LIB.add({ kind, name, created: Date.now(), thumb: snapshot(false), tris: items.reduce((s, it) => s + it.indices.length / 3, 0), count: items.length }, data);
+        libNote('Saved ' + name + ' to the library.');
+      }
+      $('libName').value = '';
+    } catch (e) {
+      libNote(e && e.name === 'QuotaExceededError' ? 'The browser has run out of space for the library. Delete some entries and try again.' : 'Could not save: ' + (e && e.message || e), true);
+    }
+    refreshLib();
+  }
+  async function loadEntry(en) {
+    let d;
+    try { d = await LIB.data(en.id); } catch (e) { libNote('Could not read that entry: ' + (e && e.message || e), true); return; }
+    if (!d) { libNote('That entry is empty or damaged.', true); return; }
+    const make = (s, place) => addItem({ name: s.name || en.name, model: s.model, prm: s.prm, positions: s.positions, indices: s.indices,
+      material: matFor(s.model), ghostGeo: ghostGeom(s.prm), ...place });
+    if (en.kind === 'scene') {
+      for (const s of d.items) make(s, { x: s.pos[0], y: s.pos[1], z: s.pos[2], rx: s.rot[0], ry: s.rot[1], rot: s.rot[2] });
+      libNote('Loaded ' + en.name + ' into the scene.');
+    } else { make({ ...d, name: en.name }, {}); libNote('Added ' + en.name + ' to the scene.'); }
+    if (mesh) mesh.material = liveMaterial();
+    needs = true; renderSceneUI();
+  }
+  $('saveLibPiece').addEventListener('click', () => saveEntry('piece'));
+  $('saveLibScene').addEventListener('click', () => saveEntry('scene'));
+  if (typeof indexedDB === 'undefined') libNote('This browser has no local database, so the library is unavailable here.', true); else refreshLib();
+
   window.addEventListener('keydown', (e) => {
     if (!selected || /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement && document.activeElement.tagName)) return;
     const g = selected.group, step = e.shiftKey ? 5 : 1;
@@ -2040,7 +2186,7 @@ if (typeof module !== 'undefined') module.exports = GEN;
 
   // ---------- export ----------
   let downloads = null, dlReady = false;
-  function setExportEnabled(on) { $('dlOne').disabled = !(on && downloads); $('dlBatch').disabled = !(on && downloads); $('addScene').disabled = !on; $('dlScene').disabled = !items.length || !downloads; }
+  function setExportEnabled(on) { $('saveLibPiece').disabled = !on; $('saveLibScene').disabled = !items.length; $('dlOne').disabled = !(on && downloads); $('dlBatch').disabled = !(on && downloads); $('addScene').disabled = !on; $('dlScene').disabled = !items.length || !downloads; }
   const fileBase = (model, seed, prm) => `${model}${prm && prm.base ? '_' + (prm.base === 'custom' ? prm.w + 'x' + prm.d + 'mm' : prm.base) : ''}_seed${seed}`;
   // Inside claude.ai the page uses the platform's download capability (which accepts .zip but not .stl).
   // Opened anywhere else (a local file, GitHub Pages), it saves files with a normal browser download.
