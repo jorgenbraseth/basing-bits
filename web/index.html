@@ -1792,6 +1792,18 @@ if (typeof module !== 'undefined') module.exports = GEN;
   let gizmoUsed = false;
   if (tc) {
     tc.setSize(0.85); tc.setSpace('world');
+    // three.js r128 bug: the gizmo draws move/rotate handles in local space even when working in world
+    // space (its space check is inverted). Show it with world orientation so it matches what the drag does.
+    const gz = tc._gizmo || tc.children.find((c) => c.type === 'TransformControlsGizmo');
+    if (gz) {
+      const ID = new THREE.Quaternion(), baseUpdate = gz.updateMatrixWorld;
+      gz.updateMatrixWorld = function (...args) {
+        if (this.space !== 'world' || this.mode === 'scale') return baseUpdate.apply(this, args);
+        const wq = this.worldQuaternion, wqs = this.worldQuaternionStart;
+        this.worldQuaternion = ID; this.worldQuaternionStart = ID;
+        try { return baseUpdate.apply(this, args); } finally { this.worldQuaternion = wq; this.worldQuaternionStart = wqs; }
+      };
+    }
     tc.addEventListener('change', () => { needs = true; });
     tc.addEventListener('objectChange', () => { if (selected && selected.group.position.z < 0) selected.group.position.z = 0; updateFields(); });
     tc.addEventListener('dragging-changed', (e) => { if (e.value) gizmoUsed = true; });
