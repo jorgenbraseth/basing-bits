@@ -197,15 +197,18 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <input id="lenA" type="range" min="2" max="12" step="0.25" value="4"></label>
       <label class="field"><span class="field-top">Wall B length <output id="o-lenB"></output></span>
         <input id="lenB" type="range" min="2" max="12" step="0.25" value="4"></label>
-      <label class="field" id="fdepthField" hidden><span class="field-top">Floor depth <output id="o-fdepth"></output></span>
-        <input id="fdepth" type="range" min="1" max="12" step="0.25" value="4"></label>
+      <label class="field fl2" hidden><span class="field-top">Floor depth <output id="o-fdepth"></output></span>
+        <input id="fdepth" type="range" min="1" max="3.25" step="0.25" value="3"></label>
       <label class="field"><span class="field-top">Wall thickness <output id="o-wall"></output></span>
         <input id="wall" type="range" min="3" max="6" step="0.5" value="3"></label>
       <label class="field"><span class="field-top">Hinge clearance <output id="o-clr"></output></span>
         <input id="clr" type="range" min="0.2" max="1" step="0.05" value="0.5"></label>
-      <label class="field"><span class="field-top">Hinge angle <output id="o-angle"></output></span>
-        <input id="angle" type="range" min="0" max="180" step="5" value="90"></label>
-      <p class="hint" id="terrainHint">Lengths are outside sizes from the corner. The corner is a print-in-place hinge: print the piece standing up, as shown. Wall B folds flat against wall A, or out to make one straight wall. 0.5 mm clearance suits most FDM printers; try 0.3 mm on resin. A two-storey floor hangs off wall A and needs supports under it.</p>
+      <label class="field fl2" hidden><span class="field-top">Floor angle <output id="o-fangle"></output></span>
+        <input id="fangle" type="range" min="0" max="90" step="5" value="0"></label>
+      <label class="field"><span class="field-top">Wall angle <output id="o-angle"></output></span>
+        <input id="angle" type="range" min="0" max="90" step="5" value="90"></label>
+      <button class="btn" id="printPose" type="button">Print pose</button>
+      <p class="hint" id="terrainHint">Lengths are outside sizes from the corner. The corner is a print-in-place hinge that opens to 90° and no further, and folds wall B flat against wall A. On two storeys the floor is hinged to wall A: fold it up before folding the walls. Print standing up in the print pose (walls at 90°, floor folded up), so nothing overhangs. 0.5 mm clearance suits most FDM printers; try 0.3 mm on resin.</p>
     </section>
 
     <section class="group" id="boneParams" aria-labelledby="h-bone" hidden>
@@ -365,7 +368,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     bays: (v) => v + (v == 1 ? ' section' : ' sections') + ' · about ' + Math.round(v * 2.35) + ' m',
     tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2), rot: (v) => Math.round(v) + '°',
     rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
-    lenA: (v) => inch(v), lenB: (v) => inch(v), fdepth: (v) => inch(v),
+    lenA: (v) => inch(v), lenB: (v) => inch(v), fdepth: (v) => inch(v), fangle: (v) => +v ? Math.round(v) + '° up' : 'down',
     wall: (v) => (+v).toFixed(1) + ' mm', clr: (v) => (+v).toFixed(2) + ' mm', angle: (v) => Math.round(v) + '°',
   };
   function inch(v) { return (+v).toFixed(2).replace(/\.?0+$/, '') + '″ · ' + Math.round(v * 25.4) + ' mm'; }
@@ -375,7 +378,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   function params() {
     const isTree = M[sel.value].kind === 'tree';
     if (M[sel.value].kind === 'mesh') return { storeys, lenA: +$('lenA').value, lenB: +$('lenB').value, floorDepth: +$('fdepth').value,
-      wall: +$('wall').value, clearance: +$('clr').value, angle: +$('angle').value };
+      wall: +$('wall').value, clearance: +$('clr').value, angle: +$('angle').value, floorAngle: +$('fangle').value };
     if (M[sel.value].baseTopper) {
       const b = $('baseSize').value, custom = b === 'custom';
       return { base: b, w: custom ? +$('cw').value : undefined, d: custom ? +$('cd').value : undefined,
@@ -387,14 +390,16 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       : { scale: +$('scale').value, minThick: +$('minbone').value, bays: +$('bays').value, quality };
   }
   function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock, bt = !!M[sel.value].baseTopper, ms = M[sel.value].kind === 'mesh'; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('baseParams').hidden = !bt; $('terrainParams').hidden = !ms; $('boneParams').hidden = t || r || bt || ms; $('baysField').hidden = !M[sel.value].fence; }
-  // storeys: a floor at 3" stops wall B folding inward, so the hinge then only opens from 90° to 180°
+  // wall B can only fold over the floor once the floor is folded up against wall A
+  function lockAngle() { $('angle').disabled = storeys === 2 && +$('fangle').value < 90; }
   document.querySelectorAll('#storeys button').forEach((b) => b.addEventListener('click', () => {
     storeys = +b.dataset.st;
     document.querySelectorAll('#storeys button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    $('fdepthField').hidden = storeys === 1;
-    $('angle').min = storeys === 2 ? 90 : 0; if (+$('angle').value < +$('angle').min) $('angle').value = $('angle').min;
-    syncOutputs(); reframe = true; schedule(0);
+    document.querySelectorAll('.fl2').forEach((f) => { f.hidden = storeys === 1; });
+    lockAngle(); syncOutputs(); reframe = true; schedule(0);
   }));
+  $('fangle').addEventListener('input', lockAngle);
+  $('printPose').addEventListener('click', () => { $('angle').value = 90; $('fangle').value = 90; lockAngle(); syncOutputs(); schedule(0); });
 
   // ---------- generation (web worker, main-thread fallback) ----------
   let worker = null, reqId = 0;
