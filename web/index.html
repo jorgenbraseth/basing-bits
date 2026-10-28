@@ -216,7 +216,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       <label class="field"><span class="field-top">Wall angle <output id="o-angle"></output></span>
         <input id="angle" type="range" min="0" max="90" step="5" value="90"></label>
       <button class="btn" id="printPose" type="button">Print pose</button>
-      <p class="hint" id="terrainHint">Lengths are outside sizes from the corner. The corner is a print-in-place hinge that opens to 90° and no further, and folds wall B flat against wall A. On two storeys the floor is hinged to wall A: fold it up before folding the walls. Print standing up in the print pose (walls at 90°, floor folded up), so nothing overhangs. 0.5 mm clearance suits most FDM printers; try 0.3 mm on resin.</p>
+      <p class="hint" id="terrainHint">Lengths are outside sizes from the corner. The corner is a print-in-place hinge that opens to 90° and no further, and folds wall B flat against wall A. On two storeys the floor is split along the diagonal and each half is hinged to its own wall: fold both halves up before folding the walls. Print standing up in the print pose (walls at 90°, floor halves folded up), so nothing overhangs. 0.5 mm clearance suits most FDM printers; try 0.3 mm on resin.</p>
     </section>
 
     <section class="group" id="boneParams" aria-labelledby="h-bone" hidden>
@@ -1297,6 +1297,15 @@ const GEN = (() => {
         quad(b[0], b[2], b[3], b[1]); quad(b[4], b[5], b[7], b[6]); quad(b[0], b[1], b[5], b[4]);
         quad(b[2], b[6], b[7], b[3]); quad(b[0], b[4], b[6], b[2]); quad(b[1], b[3], b[7], b[5]);
       },
+      prism(pts, z0, z1) {                         // convex polygon (counterclockwise from above) extruded
+        const lo = pts.map(([x, y]) => v(x, y, z0)), hi = pts.map(([x, y]) => v(x, y, z1)), n = pts.length;
+        for (let i = 1; i + 1 < n; i++) { I.push(lo[0], lo[i + 1], lo[i]); I.push(hi[0], hi[i], hi[i + 1]); }
+        for (let i = 0; i < n; i++) { const j = (i + 1) % n; quad(lo[i], lo[j], hi[j], hi[i]); }
+      },
+      mirrorXY(from) {                            // reflect vertices [from..] across x = y, keeping faces outward
+        for (let i = from * 3; i < P.length; i += 3) { const x = P[i]; P[i] = P[i + 1]; P[i + 1] = x; }
+        for (let t = 0; t < I.length; t += 3) if (I[t] >= from) { const a = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = a; }
+      },
       // Solid of revolution. prof runs counterclockwise in the (r, h) half-plane from a point on the
       // axis at the low end to a point on the axis at the high end. The axis is vertical through
       // (c0, c1), or with axis 'x' runs along x through (y, z) = (c0, c1), h then being x.
@@ -1340,62 +1349,81 @@ const GEN = (() => {
   }
 
   // L-shaped ruin. Wall A runs along +x and wall B along +y from a vertical hinge at the corner.
-  // Each wall's centre line sits d off the hinge axis, so B folds in flat against A. A corner
-  // guard on A, outside the hinge, stops B opening past 90°. A two-storey piece has a floor
-  // topped at 3", on its own hinge along wall A: it folds up flat against A, and B then folds
-  // over it. Pieces are posed by the two hinge angles; they print standing at 90° with the
-  // floor folded up, so nothing overhangs.
+  // The inner faces sit gin off the hinge axis, so B folds in flat against A. A corner guard on
+  // A, outside the hinge, stops B opening past 90°. A two-storey piece has a floor topped at 3",
+  // split along the diagonal: each half is hinged to its own wall and folds up flat against it,
+  // and B then folds over, the two folded halves meeting face to face between the walls. Pieces
+  // are posed by the hinge angles; they print standing at 90° with both floor halves folded up,
+  // so nothing overhangs.
   function ruinWalls(o) {
     const storeys = o.storeys === 2 ? 2 : 1, H = storeys * STOREY;
     const t = Math.max(3, o.wall ?? 3), c = Math.min(1, Math.max(0.2, o.clearance ?? 0.5));
     const s = c * Math.SQRT2;                      // axial gap between cones = clearance c across the 45° face
     const ft = 3, rk = 2;                          // floor thickness, floor hinge knuckle radius
-    const gin = storeys === 2 ? rk + c : c / 2;    // inner faces sit gin off the axis: room for the folded floor
+    // inner faces sit gin off the axis: room for both folded floor halves (each 2rk + c deep)
+    const gin = storeys === 2 ? 2 * rk + 1.5 * c : c / 2;
     const R = gin + t;                             // main knuckle radius: flush with both outer faces
     const w = t, out = R + c + w;                  // corner guard thickness; outer corner of the L
     const LA = Math.max(2 * INCH, (o.lenA ?? 4) * INCH), LB = Math.max(2 * INCH, (o.lenB ?? 4) * INCH);
-    const ya = [-R, -gin], xb = [-R, -gin];        // wall strips: A across y, B across x
     const reach = R + c;                           // wall bodies start here, clear of the other wall's knuckles
     const mb = meshBuilder();
 
-    // --- wall A, its half of the corner hinge, and the corner guard
-    const tabA = (lo, hi) => mb.box(0, reach + 1, ya[0], ya[1], lo, hi);
-    const tabB = (lo, hi) => mb.box(xb[0], xb[1], 0, reach + 1, lo, hi);
-    mb.box(reach, LA - out, ya[0], ya[1], 0, H);
-    const bParts = [];
-    coneHinge(0, H, R, s, INCH / 2,
-      (own, prof) => own ? bParts.push(() => mb.revolve(0, 0, prof)) : mb.revolve(0, 0, prof),
-      (own, lo, hi) => own ? bParts.push(() => tabB(lo, hi)) : tabA(lo, hi));
-    const g0 = -out, g1 = -R - c, gl = reach + 6;   // guard: an angle wrapped round the hinge
-    mb.box(g0, g1, g0, gl, 0, H);                  // along B's outside face: B rests on it at 90°
-    mb.box(g1, reach, g0, g1, 0, H);               // round the corner, clear of the knuckles
-    mb.box(reach, gl, g0, ya[0] + 1, 0, H);        // along A's outside face, fused to A
+    // Corner hinge. Both walls are built in wall A's frame (along +x, across y in [-R, -gin]);
+    // wall B's parts are mirrored across the diagonal afterwards.
+    const tab = (lo, hi) => mb.box(0, reach + 1, -R, -gin, lo, hi);
+    const corner = [[], []];
+    coneHinge(0, H, R, s, INCH / 2, (own, prof) => corner[own].push(() => mb.revolve(0, 0, prof)),
+      (own, lo, hi) => corner[own].push(() => tab(lo, hi)));
 
-    // --- floor (two storeys): plate, its knuckles and a heel that rests on A when it is down
-    const zc = STOREY - ft / 2, x0 = reach, x1 = LA - out;
-    const yEnd = Math.min(LB - out, H - zc - 1, Math.max(rk + c + 5, (o.floorDepth ?? 3) * INCH - out));
-    const fParts = [];
-    if (storeys === 2) {
+    // Floor half on wall A's side (two storeys): a hinge along the wall at 3", a plate cut along
+    // the diagonal, and heels that rest on the wall when the plate is down.
+    const zc = STOREY - ft / 2, yf = -(rk + c / 2);   // floor hinge axis at (yf, zc)
+    const g = 0.75 * c * Math.SQRT2;              // diagonal cut: halves 1.5c apart, c while one swings past the other
+    const floorSide = (L, other) => {
+      const x0 = reach, x1 = L - out, wallParts = [], plate = [];
+      const yEnd = Math.min(other - out, H - zc - 1 + yf, Math.max(x0, (o.floorDepth ?? 3) * INCH - out));
       coneHinge(x0, x1, rk, s, INCH / 2,
-        (own, prof) => own ? fParts.push(() => mb.revolve(0, zc, prof, 'x')) : mb.revolve(0, zc, prof, 'x'),
+        (own, prof) => (own ? plate : wallParts).push(() => mb.revolve(yf, zc, prof, 'x')),
         (own, lo, hi) => {
-          if (!own) { mb.box(lo, hi, ya[1] - 1, 0, zc - ft / 2, zc + ft / 2); return; }
-          fParts.push(() => {
-            mb.box(lo, hi, 0, rk + c + 1, zc - ft / 2, zc + ft / 2);
-            mb.box(lo, hi, -gin + 0.1, 0, zc - rk, zc);          // heel: stops the floor at horizontal
+          if (!own) { wallParts.push(() => mb.box(lo, hi, -gin - 1, yf, zc - ft / 2, zc + ft / 2)); return; }
+          plate.push(() => {
+            mb.box(lo, hi, yf, yf + rk + c + 1, zc - ft / 2, zc + ft / 2);
+            mb.box(lo, hi, -gin + 0.1, yf, zc - rk, zc);           // heel: stops the plate at level
           });
         });
-      fParts.push(() => mb.box(x0, x1, rk + c, yEnd, zc - ft / 2, zc + ft / 2));
-    }
-    const fFrom = mb.count(); fParts.forEach((f) => f());
-    const bFrom = mb.count();
-    mb.box(xb[0], xb[1], reach, LB - out, 0, H);
-    bParts.forEach((f) => f());
+      // plate: y from the hinge to the floor depth, x along the wall, cut back from the diagonal y = x
+      const y0 = yf + rk + c, pts = [[x0, y0], [x1, y0], [x1, Math.min(yEnd, x1 - g)]];
+      if (yEnd < x1 - g) pts.push([Math.max(x0, yEnd + g), yEnd]);
+      if (yEnd > x0 - g) pts.push([x0, x0 - g]);
+      plate.push(() => mb.prism(pts, zc - ft / 2, zc + ft / 2));
+      return { wallParts, plate };
+    };
+    const fang = storeys === 2 ? Math.min(90, Math.max(0, o.floorAngle ?? 0)) : 0;
+    const wang = storeys === 2 && Math.min(fang, o.floorAngleB ?? fang) < 90 ? 90 : Math.min(90, Math.max(0, o.angle ?? 90));
+    const fangB = storeys === 2 ? Math.min(90, Math.max(0, o.floorAngleB ?? fang)) : 0;   // B's half, if posed apart
+    const side = (own, L, other) => {             // one wall with its corner knuckles and floor half
+      const from = mb.count();
+      mb.box(reach, L - out, -R, -gin, 0, H);
+      corner[own].forEach((f) => f());
+      if (storeys === 2) {
+        const fs = floorSide(L, other);
+        fs.wallParts.forEach((f) => f());
+        const pf = mb.count(); fs.plate.forEach((f) => f());
+        const fa = own ? fangB : fang;
+        if (fa) rotateX(mb.P, pf, mb.count(), fa * Math.PI / 180, yf, zc);
+      }
+      return from;
+    };
+    side(0, LA, LB);
+    // corner guard: an angle wrapped round the outside of the hinge; wall B rests on it at 90°
+    const g0 = -out, g1 = -R - c, gl = reach + 6;
+    mb.box(g0, g1, g0, gl, 0, H);                  // along B's outside face
+    mb.box(g1, reach, g0, g1, 0, H);               // round the corner, clear of the knuckles
+    mb.box(reach, gl, g0, -R + 1, 0, H);           // along A's outside face, fused to A
+    const bFrom = side(1, LB, LA);
+    mb.mirrorXY(bFrom);
 
     // pose: wall angle 90° is the L, 0° folded flat; floor angle 0° is down, 90° folded up
-    const fang = storeys === 2 ? Math.min(90, Math.max(0, o.floorAngle ?? 0)) : 0;
-    const wang = storeys === 2 && fang < 90 ? 90 : Math.min(90, Math.max(0, o.angle ?? 90));
-    if (fang) rotateX(mb.P, fFrom, bFrom, fang * Math.PI / 180, 0, zc);
     if (wang !== 90) rotateZ(mb.P, bFrom, mb.count(), (wang - 90) * Math.PI / 180);
     return { positions: Float32Array.from(mb.P), indices: Uint32Array.from(mb.I) };
   }

@@ -41,12 +41,12 @@ The Terrain tab makes the basic shape of a ruin for Warhammer 40,000: two plain 
 
 - **Storeys:** 1 storey is 3" (76.2 mm) tall, 2 storeys are 6". A two-storey piece has a floor whose top is at 3", the 11th edition first-floor height.
 - **Wall A and B length:** 2–12", 4" by default, measured on the outside from the corner.
-- **Floor depth:** how far the floor reaches from the outside of wall A, up to about 3¼". Any deeper and it would stick out above the walls when folded up.
+- **Floor depth:** how far each floor half reaches out from its wall, measured from the outside corner, up to about 3¼". Any deeper and it would stick out above the walls when folded up.
 - **Wall thickness:** 3 mm minimum.
 - **Corner hinge:** a print-in-place hinge, a stack of knuckles about ½" tall that alternate between the two walls. They meet at 45° cone joints, so the hinge needs no pin and no supports, and holds itself together. An angle-shaped guard on wall A wraps the outside of the hinge; wall B rests against it at 90°, so the corner opens to 90° (about 92° with the print clearance) and no further. It only folds inward, until wall B lies flat against wall A.
-- **Floor hinge:** on two storeys the floor is hinged along wall A with the same kind of knuckles. Down, it rests level on small heels against wall A. Folded up, it lies flat against wall A, and wall B folds over it. The walls stand a little further apart on a two-storey piece to make room for it, so its corner hinge is thicker.
+- **Floor hinges:** on two storeys the floor is split along the diagonal from the corner. Each half is hinged along its own wall with the same kind of knuckles. Down, each half rests level on small heels against its wall. Folded up, each lies flat against its wall, and wall B then folds over, the two halves meeting face to face. To make room for them, the inside faces of a two-storey piece stand about 9.5 mm apart at the corner, so its corner hinge is thicker. The halves are cut 0.75 mm apart along the diagonal, so that one can swing past the other with the full clearance.
 - **Hinge clearance** (0.5 mm by default) is the gap between moving parts; 0.5 mm suits most FDM printers, 0.3 mm resin.
-- **Floor angle** and **Wall angle** pose the piece. **Print pose** sets the walls at 90° and the floor folded up. Print in that pose, standing up: nothing overhangs, so it needs no supports. Every pose keeps the full clearance between the parts. The one exception is the floor's resting heels when the floor is down: they sit 0.1 mm off wall A, and that pose isn't printed.
+- **Floor angle** and **Wall angle** pose the piece. **Print pose** sets the walls at 90° and both floor halves folded up. Print in that pose, standing up: nothing overhangs, so it needs no supports. Every pose keeps the full clearance between the parts. The one exception is the heels when the floor is down: they sit 0.1 mm off the walls, and that pose isn't printed.
 
 The walls are exact meshes rather than a distance field, so faces stay flat and the clearances exact. Each moving part is several overlapping closed shells (wall, knuckles, tabs, floor) that the slicer merges.
 
