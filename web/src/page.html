@@ -42,7 +42,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .seg.four { grid-template-columns: repeat(4, 1fr); }
 .seg.six { grid-template-columns: repeat(3, 1fr); }
-.seg.six button:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+.seg.six button:nth-child(-n+6) { border-bottom: 1px solid var(--line); }
 .seg.six button:nth-child(3n) { border-right: 0; }
 .seg button { border: 0; border-right: 1px solid var(--line); background: var(--bg); color: var(--fg); font: 500 13px var(--font-body); padding: 8px 4px; cursor: pointer; }
 .seg button:last-child { border-right: 0; }
@@ -115,7 +115,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   <aside class="rail">
     <header class="brand">
       <h1>Basing bits</h1>
-      <p>Dead trees, skulls, ribcages, barrels, crates, fences, shipping containers, rocks and textured base toppers for 28mm miniatures. Everything is generated in your browser and exported as printable STL.</p>
+      <p>Dead trees, skulls, ribcages, barrels, crates, fences, shipping containers, rocks, textured base toppers and hinged ruin walls for 28mm miniatures. Everything is generated in your browser and exported as printable STL.</p>
     </header>
 
     <section class="group" aria-labelledby="h-model">
@@ -127,6 +127,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <button type="button" role="tab" data-cat="Props" aria-pressed="false">Props</button>
         <button type="button" role="tab" data-cat="Rocks" aria-pressed="false">Rocks</button>
         <button type="button" role="tab" data-cat="Bases" aria-pressed="false">Bases</button>
+        <button type="button" role="tab" data-cat="Terrain" aria-pressed="false">Terrain</button>
       </div>
       <label class="field" id="modelField" hidden><span class="field-top">Model</span>
         <select id="model"></select></label>
@@ -181,6 +182,30 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       <label class="field"><span class="field-top">Angularity <output id="o-angular"></output></span>
         <input id="angular" type="range" min="0" max="1" step="0.05" value="1"></label>
       <p class="hint">High angularity gives fractured desert stone with flat faces. Low angularity gives rounded, weathered stones.</p>
+    </section>
+
+    <section class="group" id="terrainParams" aria-labelledby="h-terrain" hidden>
+      <h2 id="h-terrain">Ruin walls</h2>
+      <div class="field">
+        <span class="field-top" id="l-storeys">Storeys</span>
+        <div class="seg" id="storeys" role="group" aria-labelledby="l-storeys" style="grid-template-columns: repeat(2, 1fr)">
+          <button type="button" data-st="1" aria-pressed="true">1 storey · 3″</button>
+          <button type="button" data-st="2" aria-pressed="false">2 storeys · 6″</button>
+        </div>
+      </div>
+      <label class="field"><span class="field-top">Wall A length <output id="o-lenA"></output></span>
+        <input id="lenA" type="range" min="2" max="12" step="0.25" value="4"></label>
+      <label class="field"><span class="field-top">Wall B length <output id="o-lenB"></output></span>
+        <input id="lenB" type="range" min="2" max="12" step="0.25" value="4"></label>
+      <label class="field" id="fdepthField" hidden><span class="field-top">Floor depth <output id="o-fdepth"></output></span>
+        <input id="fdepth" type="range" min="1" max="12" step="0.25" value="4"></label>
+      <label class="field"><span class="field-top">Wall thickness <output id="o-wall"></output></span>
+        <input id="wall" type="range" min="3" max="6" step="0.5" value="3"></label>
+      <label class="field"><span class="field-top">Hinge clearance <output id="o-clr"></output></span>
+        <input id="clr" type="range" min="0.2" max="1" step="0.05" value="0.5"></label>
+      <label class="field"><span class="field-top">Hinge angle <output id="o-angle"></output></span>
+        <input id="angle" type="range" min="0" max="180" step="5" value="90"></label>
+      <p class="hint" id="terrainHint">Lengths are outside sizes from the corner. The corner is a print-in-place hinge: print the piece standing up, as shown. Wall B folds flat against wall A, or out to make one straight wall. 0.5 mm clearance suits most FDM printers; try 0.3 mm on resin. A two-storey floor hangs off wall A and needs supports under it.</p>
     </section>
 
     <section class="group" id="boneParams" aria-labelledby="h-bone" hidden>
@@ -307,7 +332,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 
   // ---------- model picker ----------
   const sel = $('model');
-  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel', Rocks: 'rock_boulder', Bases: 'base_cobble' };
+  const lastPick = { Trees: 'tree', Skulls: 'skull_longhorn', Ribcages: 'ribs_cattle', Props: 'barrel', Rocks: 'rock_boulder', Bases: 'base_cobble', Terrain: 'ruin_l' };
   const tabScale = { Skulls: 0.25, Ribcages: 0.25, Props: 0.2 };
   const scaleHints = {
     Skulls: '1:40 is slightly heroic for 28mm, so the bones read well on the table. Strict 28mm is about 1:56.',
@@ -340,11 +365,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     bays: (v) => v + (v == 1 ? ' section' : ' sections') + ' · about ' + Math.round(v * 2.35) + ' m',
     tol: (v) => '−' + (+v).toFixed(2) + ' mm', thick: (v) => (+v).toFixed(1) + ' mm', relief: (v) => '×' + (+v).toFixed(2), psize: (v) => '×' + (+v).toFixed(2), rot: (v) => Math.round(v) + '°',
     rsize: (v) => '×' + (+v).toFixed(2), rough: (v) => '×' + (+v).toFixed(1), angular: (v) => Math.round(v * 100) + '%',
+    lenA: (v) => inch(v), lenB: (v) => inch(v), fdepth: (v) => inch(v),
+    wall: (v) => (+v).toFixed(1) + ' mm', clr: (v) => (+v).toFixed(2) + ' mm', angle: (v) => Math.round(v) + '°',
   };
+  function inch(v) { return (+v).toFixed(2).replace(/\.?0+$/, '') + '″ · ' + Math.round(v * 25.4) + ' mm'; }
   const paramIds = Object.keys(fmt);
   function syncOutputs() { for (const id of paramIds) $('o-' + id).textContent = fmt[id]($(id).value); }
+  let storeys = 1;
   function params() {
     const isTree = M[sel.value].kind === 'tree';
+    if (M[sel.value].kind === 'mesh') return { storeys, lenA: +$('lenA').value, lenB: +$('lenB').value, floorDepth: +$('fdepth').value,
+      wall: +$('wall').value, clearance: +$('clr').value, angle: +$('angle').value };
     if (M[sel.value].baseTopper) {
       const b = $('baseSize').value, custom = b === 'custom';
       return { base: b, w: custom ? +$('cw').value : undefined, d: custom ? +$('cd').value : undefined,
@@ -355,7 +386,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       ? { height: +$('height').value, gnarl: +$('gnarl').value, thickness: +$('thickness').value, bark: +$('bark').value, minThick: +$('twig').value, quality }
       : { scale: +$('scale').value, minThick: +$('minbone').value, bays: +$('bays').value, quality };
   }
-  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock, bt = !!M[sel.value].baseTopper; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('baseParams').hidden = !bt; $('boneParams').hidden = t || r || bt; $('baysField').hidden = !M[sel.value].fence; }
+  function showParams() { const t = M[sel.value].kind === 'tree', r = !!M[sel.value].rock, bt = !!M[sel.value].baseTopper, ms = M[sel.value].kind === 'mesh'; $('treeParams').hidden = !t; $('rockParams').hidden = !r; $('baseParams').hidden = !bt; $('terrainParams').hidden = !ms; $('boneParams').hidden = t || r || bt || ms; $('baysField').hidden = !M[sel.value].fence; }
+  // storeys: a floor at 3" stops wall B folding inward, so the hinge then only opens from 90° to 180°
+  document.querySelectorAll('#storeys button').forEach((b) => b.addEventListener('click', () => {
+    storeys = +b.dataset.st;
+    document.querySelectorAll('#storeys button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    $('fdepthField').hidden = storeys === 1;
+    $('angle').min = storeys === 2 ? 90 : 0; if (+$('angle').value < +$('angle').min) $('angle').value = $('angle').min;
+    syncOutputs(); reframe = true; schedule(0);
+  }));
 
   // ---------- generation (web worker, main-thread fallback) ----------
   let worker = null, reqId = 0;
@@ -511,10 +550,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     updateFields();
     if (mesh) mesh.material = liveMaterial();
   }
+  // Exact-mesh pieces (flat walls) share vertices between faces, so they are shaded flat.
+  function meshGeometry(model, positions, indices) {
+    let g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    g.setIndex(new THREE.BufferAttribute(indices, 1));
+    if ((M[model] || {}).kind === 'mesh') g = g.toNonIndexed();
+    g.computeVertexNormals();
+    return g;
+  }
   function addItem(src) {                                         // src: { name, model, positions, indices, material, ghostGeo, x, y, rot }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(src.positions, 3));
-    geo.setIndex(new THREE.BufferAttribute(src.indices, 1)); geo.computeVertexNormals(); geo.computeBoundingSphere();
+    const geo = meshGeometry(src.model, src.positions, src.indices); geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, src.material.clone()), group = new THREE.Group(); group.add(m);
     if (src.ghostGeo) group.add(new THREE.Mesh(src.ghostGeo.clone(), ghostMat));
     group.position.set(src.x || 0, src.y || 0, 0); group.rotation.set(src.rx || 0, src.ry || 0, src.rot || 0);
@@ -556,10 +602,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a55, roughness: 0.9, metalness: 0 });
   const rockMat = new THREE.MeshStandardMaterial({ color: 0xa8957d, roughness: 1, metalness: 0 });
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x9a5444, roughness: 0.7, metalness: 0.15 });
+  const ruinMat = new THREE.MeshStandardMaterial({ color: 0x8c949b, roughness: 0.85, metalness: 0.05 });
   let mesh = null, last = null;
   function matFor(model) {
     const m = M[model] || {};
-    return m.baseTopper ? (m.ground === 'planks' ? woodMat : m.ground === 'deck' ? steelMat : rockMat) : m.kind === 'tree' ? barkMat : m.steel ? steelMat : m.wood ? woodMat : m.rock ? rockMat : boneMat;
+    return m.baseTopper ? (m.ground === 'planks' ? woodMat : m.ground === 'deck' ? steelMat : rockMat) : m.kind === 'tree' ? barkMat : m.kind === 'mesh' ? ruinMat : m.steel ? steelMat : m.wood ? woodMat : m.rock ? rockMat : boneMat;
   }
 
   const orbit = { theta: -0.9, phi: 1.15, dist: 120, target: new THREE.Vector3(0, 0, 10) };
@@ -653,10 +700,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
     try {
       const r = await run(model, seed, prm);
       if (my !== token) return;
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
-      g.setIndex(new THREE.BufferAttribute(r.indices, 1));
-      g.computeVertexNormals();
+      const g = meshGeometry(model, r.positions, r.indices);
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
       const mat = matFor(model);
       mesh = new THREE.Mesh(g, mat); mesh.userData.baseMat = mat; mesh.material = liveMaterial();

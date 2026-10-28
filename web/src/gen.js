@@ -1,5 +1,5 @@
 // ============================================================================
-// Procedural terrain bits for 28mm: dead trees, skulls, ribcages.
+// Procedural terrain bits for 28mm: dead trees, skulls, ribcages, ruin walls.
 // Pure JS, no dependencies. Exposes generate(model, seed, params) ->
 // { positions: Float32Array, indices: Uint32Array, size:[x,y,z] } in mm.
 // ============================================================================
@@ -941,6 +941,87 @@ const GEN = (() => {
     return { field: { F, nx, ny, nz }, lo, voxel, size: [w, dpt] };
   }
 
+  // ======================================================================
+  // Ruin walls (units: mm; lengths and storey heights set in inches).
+  // Built as exact closed meshes, not a distance field: flat walls and a
+  // print-in-place hinge need clean faces and exact clearances.
+  // ======================================================================
+  const INCH = 25.4, STOREY = 3 * INCH;          // 11e: the first floor sits at 3"
+  function meshBuilder() {
+    const P = [], I = [];
+    const v = (x, y, z) => { P.push(x, y, z); return P.length / 3 - 1; };
+    const quad = (a, b, c, d) => I.push(a, b, c, a, c, d);
+    return {
+      P, I,
+      box(x0, x1, y0, y1, z0, z1) {               // axis-aligned box, outward winding
+        const b = [];
+        for (let k = 0; k < 2; k++) for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) b.push(v(i ? x1 : x0, j ? y1 : y0, k ? z1 : z0));
+        quad(b[0], b[2], b[3], b[1]); quad(b[4], b[5], b[7], b[6]); quad(b[0], b[1], b[5], b[4]);
+        quad(b[2], b[6], b[7], b[3]); quad(b[0], b[4], b[6], b[2]); quad(b[1], b[3], b[7], b[5]);
+      },
+      // Solid of revolution about a vertical axis through (cx, cy). prof runs counterclockwise in
+      // the (r, z) half-plane from a point on the axis at the bottom to a point on the axis at the top.
+      revolve(cx, cy, prof, n = 48) {
+        const rings = prof.map(([r, z]) => r < 1e-9 ? v(cx, cy, z)
+          : Array.from({ length: n }, (_, j) => v(cx + r * Math.cos(2 * Math.PI * j / n), cy + r * Math.sin(2 * Math.PI * j / n), z)));
+        for (let k = 0; k + 1 < prof.length; k++) for (let j = 0; j < n; j++) {
+          const j1 = (j + 1) % n, a = rings[k], b = rings[k + 1];
+          if (!Array.isArray(a)) I.push(a, b[j1], b[j]);
+          else if (!Array.isArray(b)) I.push(a[j], a[j1], b);
+          else quad(a[j], a[j1], b[j1], b[j]);
+        }
+      },
+    };
+  }
+  function rotateZ(P, from, ang) {                // rotate vertices [from..] about the z axis
+    const c = Math.cos(ang), s = Math.sin(ang);
+    for (let i = from * 3; i < P.length; i += 3) { const x = P[i], y = P[i + 1]; P[i] = x * c - y * s; P[i + 1] = x * s + y * c; }
+  }
+
+  // L-shaped ruin: wall A runs along +x and wall B along +y from a vertical hinge at the corner.
+  // The hinge is a stack of knuckles that alternate between the two walls, with 45° cone joints
+  // between them, so it prints in place without a pin or supports and holds itself together.
+  // Each wall's centre line sits d off the hinge axis, so B can swing in flat against A's inner
+  // face (single storey) or out to 180° to make one straight wall.
+  function ruinWalls(o) {
+    const storeys = o.storeys === 2 ? 2 : 1, H = storeys * STOREY;
+    const t = Math.max(3, o.wall ?? 3), c = Math.min(1, Math.max(0.2, o.clearance ?? 0.5));
+    const d = (t + c) / 2, R = d + t / 2;          // knuckle radius: flush with both outer faces
+    const LA = Math.max(2 * INCH, (o.lenA ?? 4) * INCH), LB = Math.max(2 * INCH, (o.lenB ?? 4) * INCH);
+    const s = c * Math.SQRT2;                      // vertical gap between cones = clearance c across the 45° face
+    const n = Math.max(3, Math.round(H / (INCH / 2)));
+    const zs = Array.from({ length: n + 1 }, (_, i) => i * H / n);
+    const ya = [-R, -c / 2], xb = [-R, -c / 2];   // wall strips: A across y, B across x
+    const reach = R + c;                           // wall bodies start here, clear of the other wall's knuckles
+    const mb = meshBuilder();
+
+    const part = (owner) => {                      // owner 0 = wall A, 1 = wall B
+      if (owner === 0) mb.box(reach, LA - R, ya[0], ya[1], 0, H);
+      else mb.box(xb[0], xb[1], reach, LB - R, 0, H);
+      for (let i = owner; i < n; i += 2) {
+        const first = i === 0, last = i === n - 1;
+        const zb = zs[i] + s / 2, zt = zs[i + 1] - s / 2;
+        mb.revolve(0, 0, [first ? [0, 0] : [0, zb + R], [R, first ? 0 : zb], [R, last ? H : zt], last ? [0, H] : [0, zt + R]]);
+        // tab joining the knuckle to its wall, kept above the cone tip of the knuckle below
+        const z0 = first ? 0 : zb + R, z1 = last ? H : zt;
+        if (owner === 0) mb.box(0, reach + 1, ya[0], ya[1], z0, z1);
+        else mb.box(xb[0], xb[1], 0, reach + 1, z0, z1);
+      }
+      if (owner === 0 && storeys === 2) {          // floor at 3", carried by wall A only so B can still swing out
+        const ft = 2.5, zf = STOREY, yEnd = Math.min(LB - R, Math.max(reach + 5, (o.floorDepth ?? 4) * INCH - R));
+        mb.box(reach, LA - R, ya[1] - 1, yEnd, zf - ft, zf);
+        if (yEnd > reach) mb.box(c, reach + 1, reach, yEnd, zf - ft, zf);
+      }
+    };
+    part(0);
+    const fromB = mb.P.length / 3;
+    part(1);
+    // hinge angle between the walls: 90° is the L, 180° a straight wall, 0° folded flat (single storey)
+    const ang = Math.min(180, Math.max(storeys === 2 ? 90 : 0, o.angle ?? 90));
+    if (ang !== 90) rotateZ(mb.P, fromB, (ang - 90) * Math.PI / 180);
+    return { positions: Float32Array.from(mb.P), indices: Uint32Array.from(mb.I) };
+  }
+
   const MODELS = {
     tree:           { group: 'Trees', label: 'Dead tree', kind: 'tree' },
     skull_longhorn: { group: 'Skulls', label: 'Longhorn steer skull', fn: (r) => bovineSkull(r, 'longhorn') },
@@ -980,6 +1061,7 @@ const GEN = (() => {
     rock_scree:     { group: 'Rocks', label: 'Scree (loose stones)', fn: rockScree, rock: true, keepAll: true },
     rock_outcrop:   { group: 'Rocks', label: 'Layered sandstone outcrop', fn: rockOutcrop, rock: true },
     rock_hoodoo:    { group: 'Rocks', label: 'Hoodoo (rock pillar with cap)', fn: rockHoodoo, rock: true },
+    ruin_l:         { group: 'Terrain', label: 'Ruin walls, L-shaped with hinge', kind: 'mesh', fn: ruinWalls },
   };
 
   // ======================================================================
@@ -1255,6 +1337,14 @@ const GEN = (() => {
   function generate(model, seed, o = {}) {
     const m = MODELS[model]; if (!m) throw new Error('Unknown model ' + model);
     const rng = makeRng(seed), quality = o.quality ?? 1;
+    if (m.kind === 'mesh') {                                         // exact meshes, built directly in mm
+      const { positions: P, indices } = m.fn(o);
+      const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < P.length; i += 3) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], P[i + c]); mx[c] = Math.max(mx[c], P[i + c]); }
+      const cx = (mn[0] + mx[0]) / 2, cy = (mn[1] + mx[1]) / 2;
+      for (let i = 0; i < P.length; i += 3) { P[i] -= cx; P[i + 1] -= cy; P[i + 2] -= mn[2]; }
+      return { positions: P, indices, size: sub(mx, mn) };
+    }
     if (m.baseTopper) {                                              // ground plates: heightfield straight into the grid
       const bf = buildBaseField(model, rng, o);
       let mesh = surfaceNets(bf.field, bf.lo, bf.voxel);

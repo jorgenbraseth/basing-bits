@@ -1,6 +1,6 @@
 # basing-bits
 
-Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates, fences, shipping containers, rocks and textured base toppers. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
+Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead trees, animal skulls, ribcages, barrels, crates, fences, shipping containers, rocks and textured base toppers, plus hinged ruin walls for Warhammer 40,000 tables. Every piece comes out as a closed, printable STL with a flat bottom, ready to glue onto a base.
 
 ## The web generator
 
@@ -17,6 +17,7 @@ Procedural scatter terrain for 28mm miniature bases and dioramas: gnarled dead t
 | Props | Barrel, barrel on its side, broken barrel, crate, smashed crate, stacked crates, post-and-rail fence, picket fence, broken fence (fences: 1–5 bays, each about 2.3 m), shipping containers: 20 ft, 40 ft, opened, wrecked and half buried |
 | Rocks | Boulder, rock cluster, scree (loose stones), layered sandstone outcrop, hoodoo (rock pillar with cap); size, roughness, angularity |
 | Bases | Textured toppers cut to the top surface of a base: cobblestones, wooden planks, flagstones, cracked earth, sand and pebbles, industrial deck plate, floor tiles, gravel and dirt |
+| Terrain | L-shaped ruin walls with a print-in-place hinge at the corner, 1 or 2 storeys |
 
 ### Composing a scene
 
@@ -33,6 +34,19 @@ With **Drop pieces onto the surface below** on, a newly added piece, or one you 
 Skulls, ribcages and props are modelled in real-world centimetres and scaled with the **Model scale** slider (mm per real cm). The defaults are 1:40 for bones, slightly heroic so they read well on the table, and 1:50 for props. Strict 28mm is about 1:56. Rocks have no real-world scale; the **Size** slider scales them directly (at ×1 a boulder is about 20 mm across).
 
 The thinnest twig or bone has a minimum thickness (default 1.1 mm for trees, 0.8 mm for bones). Plank seams on barrels and crates are about 0.2 mm deep, so they show best on resin printers.
+
+### Ruin walls
+
+The Terrain tab makes the basic shape of a ruin for Warhammer 40,000: two plain walls meeting at a corner. Sizes are in inches, as on the table.
+
+- **Storeys:** 1 storey is 3" (76.2 mm) tall, 2 storeys are 6". A two-storey piece has a floor whose top is at 3", the 11th edition first-floor height. It hangs off wall A, so wall B can still swing.
+- **Wall A and B length:** 2–12", 4" by default, measured on the outside from the corner.
+- **Floor depth:** how far the floor reaches from wall A, up to the full length of wall B.
+- **Wall thickness:** 3 mm minimum.
+- **Hinge:** the corner is a print-in-place hinge, a stack of knuckles about 0.5" tall that alternate between the two walls. They meet at 45° cone joints, so the hinge needs no pin and no supports, and holds itself together. **Hinge clearance** (0.5 mm by default) is the gap between the moving parts; 0.5 mm suits most FDM printers, 0.3 mm resin. Print the piece standing up, as exported.
+- **Hinge angle** poses the piece: 90° is the L, 180° a straight wall, and 0° folds a single-storey piece flat for storage. With a floor the hinge opens from 90° to 180° only. The two halves keep the full clearance at every angle.
+
+The walls are exact meshes rather than a distance field, so faces stay flat and the clearances exact. The two halves are separate closed shells, and each half is several overlapping shells (wall, knuckles, tabs, floor) that the slicer merges.
 
 ### Base toppers
 
@@ -59,7 +73,7 @@ The mesh is closed and outward-facing. A handful of edges per piece can be share
 
 | File | What it is |
 |---|---|
-| `web/src/gen.js` | The generator: models, SDF evaluation, meshing, STL and ZIP writers. Runs in the browser and in Node. |
+| `web/src/gen.js` | The generator: models, SDF evaluation, meshing, exact meshes for the ruin walls, STL and ZIP writers. Runs in the browser and in Node. |
 | `web/src/page.html` | The page UI (Three.js viewport, controls, export). |
 | `web/build.py` | Inlines `gen.js` into `page.html` and writes `web/index.html`. |
 | `web/test/check.js` | Smoke test: builds every model and checks the mesh is closed and outward-facing. |
